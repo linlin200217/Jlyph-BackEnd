@@ -1,4 +1,4 @@
-pands
+pandas
 flask
 werkzeug
 gensim
@@ -9,4 +9,5 @@ pillow
 torch
 numpy
 rembg
+transformers
 

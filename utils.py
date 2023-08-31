@@ -12,6 +12,7 @@ import random
 import numpy as np
 import cv2
 import rembg
+from typing import Union, List, Dict, Optional
 
 
 IMAGE_RESOURCE_PATH = "./resources"
@@ -29,6 +30,9 @@ MASK_SQUARE = Image.open("src/Mask_Square.png")
 MASK = [MASK_CIRCLE, MASK_VERRECTANGLE, MASK_SQUARE]
 DEVICE = "cpu"
 
+os.makedirs(IMAGE_RESOURCE_PATH, exist_ok=True)
+os.makedirs(DATAPATH, exist_ok=True)
+
 PIPE_SD = StableDiffusionImg2ImgPipeline.from_pretrained(
     "runwayml/stable-diffusion-v1-5", torch_dtype=torch.float16).to(DEVICE)
 
@@ -38,7 +42,7 @@ PIPE_SDCC = StableDiffusionControlNetPipeline.from_pretrained("runwayml/stable-d
                                                               torch_dtype=torch.float16).to(DEVICE)
 
 
-def save_image(img: Image.Image, prefix: str | None, type: str = "png") -> str:
+def save_image(img: Image.Image, prefix: Optional[str], type: str = "png") -> str:
     prefix = prefix or "main_"
     image_id = int(datetime.datetime.now().timestamp())
     filename = f"{prefix}{image_id}.{type}"
@@ -47,7 +51,7 @@ def save_image(img: Image.Image, prefix: str | None, type: str = "png") -> str:
     return prefix+str(image_id)
 
 
-def data_process(data_path: str) -> dict:
+def data_process(data_path: str) -> Dict:
     data = pd.read_csv(data_path)
     data_title = data_path.split("/")[-1].split(".")[0]
     struct = {
@@ -64,7 +68,7 @@ def data_process(data_path: str) -> dict:
     return struct
 
 
-def word2vec(title: str) -> dict:
+def word2vec(title: str) -> Dict:
     glove_vectors = gensim.downloader.load('word2vec-google-news-300')
     corpus_related_words = [word for word,
                             _ in glove_vectors.most_similar(title, topn=20)]
@@ -101,12 +105,12 @@ def word2vec(title: str) -> dict:
     return dict(sorted(noun_scores.items(), key=lambda item: item[1], reverse=True)[:10])
 
 
-def make_glyph(data: dict) -> list[dict[str, str]]:
-    image_id: list = PREDESIGN[data['design']](**data)
+def make_glyph(data: Dict) -> List[Dict[str, str]]:
+    image_id: List = PREDESIGN[data['design']](**data)
     return image_id
 
 
-def make_partial(prompt1: str, guide1: int, img_prefix: None, *args, **kwargs) -> list[dict[str, str]]:
+def make_partial(prompt1: str, guide1: int, img_prefix: None, *args, **kwargs) -> List[Dict[str, str]]:
     # guide: [0-2]
     prompt = PARTIAL_PREFIX + prompt1
     out = PIPE_SD(
@@ -114,7 +118,7 @@ def make_partial(prompt1: str, guide1: int, img_prefix: None, *args, **kwargs) -
     return [{"prompt": prompt1,"image_id": save_image(out.images[0], img_prefix)}]
 
 
-def make_whole(prompt1: str | list, guide1: int, img_prefix: None, *args, **kwargs) -> list[dict[str, str]]:
+def make_whole(prompt1: Union[str, List], guide1: int, img_prefix: None, *args, **kwargs) -> List[Dict[str, str]]:
     if isinstance(prompt1, list):
         # if choice sahpe
         return [
@@ -129,7 +133,7 @@ def make_whole(prompt1: str | list, guide1: int, img_prefix: None, *args, **kwar
     return [{"prompt": prompt1,"image_id": save_image(out.images[0], img_prefix)}]
 
 
-def make_combination(prompt1: str | list, prompt2: str, guide1: int, guide2: int, *args, **kwargs):
+def make_combination(prompt1: Union[str, List], prompt2: str, guide1: int, guide2: int, *args, **kwargs):
     main_image = make_whole(prompt1, guide1)
     sub_image = make_partial(prompt2, guide2, "sub_")
     return main_image + sub_image
@@ -144,12 +148,12 @@ PREDESIGN = {
 
 
 # generate
-def generate_glyph(data: dict) -> list[str]:
+def generate_glyph(data: Dict) -> List[str]:
     df = pd.read_csv(os.path.join(DATAPATH, data['data_title']+".csv"))
     return DESIGN[data['design']](df=df, **data)
 
 
-def make_prompt_by_categorical(prefix: str, prompt: str, categorical: list, df: pd.DataFrame | None = None, _color: list[str] | None = None, _texture: list[str] | None = None, _num: int| None = None) -> list[str]:
+def make_prompt_by_categorical(prefix: str, prompt: str, categorical: List, df: Optional[pd.DataFrame] = None, _color: Optional[List[str]] = None, _texture: Optional[List[str]] = None, _num: Optional[int] = None) -> List[str]:
     if len(categorical) == 1:
         item = categorical[0]
         value = item["value"]
@@ -164,13 +168,13 @@ def make_prompt_by_categorical(prefix: str, prompt: str, categorical: list, df: 
         return [(f"{prefix}{color} {texture} {prompt}", color, texture) for color, texture in zip(random.sample(_color or COLOR, num), random.sample(_texture or TEXTURE, num))]
 
 
-def generate_partial(prompt1: str, Categorical1: list, Numerical: list, df: pd.DataFrame, image_id: str, image_prefix: None = None, *args, **kwargs):
+def generate_partial(prompt1: str, Categorical1: List, Numerical: List, df: pd.DataFrame, image_id: str, image_prefix: None = None, *args, **kwargs):
     prompts = make_prompt_by_categorical(
         PARTIAL_PREFIX, prompt1, Categorical1, df)
     return [{"prompt": prompt1, "color": color, "texture": texture, "image_id": generate_image(prompt, image_id, image_prefix)} for prompt, color, texture in prompts]
 
 
-def generate_whole(prompt1: str | list, Categorical1: list, Numerical: list, df: pd.DataFrame, image_id: str, image_prefix: None = None, *args, **kwargs):
+def generate_whole(prompt1: Union[str, List], Categorical1: List, Numerical: List, df: pd.DataFrame, image_id: str, image_prefix: Optional[str] = None, *args, **kwargs):
     if isinstance(prompt1, list):
         image_id = []
         for prompt in prompt1:
@@ -182,7 +186,7 @@ def generate_whole(prompt1: str | list, Categorical1: list, Numerical: list, df:
     return [{"prompt": prompt1, "color": color, "texture": texture, "image_id": generate_image(prompt, image_id, image_prefix)} for prompt, color, texture in prompts]
 
 
-def generate_combination(image_id: list, prompt1: str | list, prompt2: str, Categorical1: list, Categorical2: list, df: pd.DataFrame, Numerical: list, *args, **kwargs):
+def generate_combination(image_id: List, prompt1: Union[str, List], prompt2: str, Categorical1: List, Categorical2: List, df: pd.DataFrame, Numerical: List, *args, **kwargs):
     sub_prompts = make_prompt_by_categorical(COMBINATION_PREDIX, prompt2, Categorical2, df)
     main_images = []
     sub_images = []
@@ -222,7 +226,7 @@ DESIGN = {
 }
 
 
-def regenerate_by_prompt(image_id:str, design: str, prompt: str, color: str|None=None, texture: str|None = None):
+def regenerate_by_prompt(image_id:str, design: str, prompt: str, color: Optional[str]=None, texture: Optional[str] = None):
     prefix = PARTIAL_PREFIX if design=="partial" else WHOLE_PREFIX if design=="whole" else COMBINATION_PREDIX
     regenerate_prompt = f"{prefix}{f'{color} {texture}' if color and texture else color if color else texture} {prompt}"
     image_id = generate_image(regenerate_prompt, image_id)
