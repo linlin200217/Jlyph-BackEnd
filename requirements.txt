@@ -1,0 +1,12 @@
+pands
+flask
+werkzeug
+gensim
+nltk
+diffusers
+opencv-python
+pillow
+torch
+numpy
+rembg
+
