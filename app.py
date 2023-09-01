@@ -32,7 +32,7 @@ async def pregenerate():
     POST
     {
         design: "partial" | "whole" | "combination",
-        prompt1: ["shape_prompt1", "shape_prompt2"...] | "prompt",
+        prompt1: [subprompt1, subprompt2...] | prompt,
         prompt2: "" | null,
         guide1:  0 | 1 | 2,
         guide2:  0 | 1 | 2 | null,
@@ -69,11 +69,11 @@ async def generate():
             ], | null,
         Numerical: ["number","size","opacity"],  # todo
         Ordinal: ["size","opacity"],
-        prompt1: ["shape_prompt1", "shape_prompt2"...] | "prompt",
+        prompt1: "",
         prompt2: "" | null,
         guide1:  0 | 1 | 2,
         guide2:  0 | 1 | 2 | null,
-        image_id: [str], # [main_xxx.png, main_xxx.png, sub_xxx.png] sub_image in tail
+        image_id: [str],
         data_title: str
     }
     return:
@@ -112,7 +112,6 @@ def regenerate():
     """
     return regenerate_by_prompt(**request.form)
 
-
 @app.route('/color')
 def get_color():
     """
@@ -127,7 +126,6 @@ def get_color():
     """
     exist_color = request.form["exist_color"]
     return jsonify({"color": set(COLOR) - set(exist_color)})
-
 
 @app.route('/texture')
 def get_texture():
@@ -145,6 +143,7 @@ def get_texture():
     return jsonify({"color": set(TEXTURE) - set(exist_texture)})
 
 
+
 @app.route("/image/<image_id>")
 def get_image(image_id):
     """
@@ -155,5 +154,5 @@ def get_image(image_id):
     return send_file(os.path.join(IMAGE_RESOURCE_PATH, image_id+".png"))
 
 
-if __name__ == "__main__":
+if __name__=="__main__":
     app.run(port=8000)
