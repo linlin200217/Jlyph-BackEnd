@@ -1,24 +1,16 @@
-import os
-import sqlite3
 from flask import Flask, request, jsonify, send_file
 from werkzeug.utils import secure_filename
-from utils import data_process, make_glyph, IMAGE_RESOURCE_PATH, DATAPATH
+import os
+from utils import COLOR, TEXTURE, data_process, make_glyph, IMAGE_RESOURCE_PATH, DATAPATH, generate_glyph, regenerate_by_prompt
 
 
 app = Flask(__name__)
 
-def get_db_connection():
-    conn = sqlite3.connect('./database/flower.db')
-    conn.row_factory = sqlite3.Row
-    return conn
-
-@app.route("/")
-def index():
-    return "Flask loaded"
 
 @app.route("/upload")
 async def load_data():
     """
+    POST FILE
     return json data {
         data_title: string,
         Categorical: [],
@@ -37,9 +29,10 @@ async def load_data():
 @app.route("/pregenerate")
 async def pregenerate():
     """
+    POST
     {
         design: "partial" | "whole" | "combination",
-        prompt1: "",
+        prompt1: [subprompt1, subprompt2...] | prompt,
         prompt2: "" | null,
         guide1:  0 | 1 | 2,
         guide2:  0 | 1 | 2 | null,
@@ -48,7 +41,10 @@ async def pregenerate():
     return:
         {
             "status": "success", 
-            "image_id": image_id
+            "image": [
+                {prompt: promt1 | subprompt1, image_id: <image_id of str>},
+                {prompt: promt2 | subprompt2, image_id: <image_id of str>},
+            ]
         }
     """
     image_id = make_glyph(request.form)
@@ -58,6 +54,7 @@ async def pregenerate():
 @app.route("/generate")
 async def generate():
     """
+    POST
     {
         design: "partial" | "whole" | "combination",
         Categorical1: 
@@ -76,11 +73,75 @@ async def generate():
         prompt2: "" | null,
         guide1:  0 | 1 | 2,
         guide2:  0 | 1 | 2 | null,
-        image_id: str,
+        image_id: [str],
         data_title: str
     }
+    return:
+    {
+            "status": "success", 
+            "image": [
+                {prompt: promt1 | subprompt1, texture?: str, color?: str, image_id: <image_id of str>},
+                {prompt: promt2 | subprompt2, texture?: str, color?: str, image_id: <image_id of str>},
+            ]
+    }
     """
-    pass
+    image_id = generate_glyph(request.form)
+    return jsonify({"status": "success", "image_id": image_id})
+
+
+@app.route("/regenerate")
+def regenerate():
+    """
+    POST
+    only call after generate
+    {
+        image_id: str,
+        design: "partial" | "whole" | "combination",
+        prompt: str,
+        guide: 0 | 1 | 2,
+        color?: str,
+        texture?: str
+    }
+    return {
+        image_id: str,
+        prompt: str,
+        texture?: str,
+        color?: str
+
+    }
+    """
+    return regenerate_by_prompt(**request.form)
+
+@app.route('/color')
+def get_color():
+    """
+    POST
+    {
+        exist_color: list[str]
+    }
+    return
+    {
+        color: list[str]
+    }
+    """
+    exist_color = request.form["exist_color"]
+    return jsonify({"color": set(COLOR) - set(exist_color)})
+
+@app.route('/texture')
+def get_texture():
+    """
+    POST
+    {
+        exist_texture: list[str]
+    }
+    return
+    {
+        texture: list[str]
+    }
+    """
+    exist_texture = request.form["exist_texture"]
+    return jsonify({"color": set(TEXTURE) - set(exist_texture)})
+
 
 
 @app.route("/image/<image_id>")
