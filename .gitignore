@@ -5,3 +5,15 @@ resources/*
 *.zip
 venv/
 test*
+*.pyc
+instance/
+
+.pytest_cache/
+.coverage
+htmlcov/
+
+dist/
+build/
+*.egg-info/
+
+.vscode/
