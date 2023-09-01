@@ -115,29 +115,28 @@ def make_partial(prompt1: str, guide1: int, img_prefix: None, *args, **kwargs) -
     prompt = PARTIAL_PREFIX + prompt1
     out = PIPE_SD(
         prompt=prompt, image=MASK[guide1], strength=0.9, guidance_scale=20)
-    return [{"prompt": prompt1,"image_id": save_image(out.images[0], img_prefix)}]
+    return [{"prompt": prompt1, "image_id": save_image(out.images[0], img_prefix)}]
 
 
 def make_whole(prompt1: Union[str, List], guide1: int, img_prefix: None, *args, **kwargs) -> List[Dict[str, str]]:
     if isinstance(prompt1, list):
         # if choice sahpe
         return [
-            {   "prompt": prompt,
+            {"prompt": prompt,
                 "image_id": save_image(PIPE_SD(prompt=WHOLE_PREFIX + prompt,
-                       image=MASK[guide1], strength=0.9, guidance_scale=20).images[0], img_prefix)}
+                                               image=MASK[guide1], strength=0.9, guidance_scale=20).images[0], img_prefix)}
             for prompt in prompt1
         ]
     prompt = WHOLE_PREFIX + prompt1
     out = PIPE_SD(
         prompt=prompt, image=MASK[guide1], strength=0.9, guidance_scale=20)
-    return [{"prompt": prompt1,"image_id": save_image(out.images[0], img_prefix)}]
+    return [{"prompt": prompt1, "image_id": save_image(out.images[0], img_prefix)}]
 
 
 def make_combination(prompt1: Union[str, List], prompt2: str, guide1: int, guide2: int, *args, **kwargs):
     main_image = make_whole(prompt1, guide1)
     sub_image = make_partial(prompt2, guide2, "sub_")
     return main_image + sub_image
-
 
 
 PREDESIGN = {
@@ -174,12 +173,14 @@ def generate_partial(prompt1: str, Categorical1: List, Numerical: List, df: pd.D
     return [{"prompt": prompt1, "color": color, "texture": texture, "image_id": generate_image(prompt, image_id, image_prefix)} for prompt, color, texture in prompts]
 
 
-def generate_whole(prompt1: Union[str, List], Categorical1: List, Numerical: List, df: pd.DataFrame, image_id: str, image_prefix: Optional[str] = None, *args, **kwargs):
+def generate_whole(prompt1: Union[str, List], Categorical1: List, Numerical: List, df: pd.DataFrame, image_id: str, image_prefix: Optional[str] = None, *args, **kwargs) -> List[Dict]:
     if isinstance(prompt1, list):
         image_id = []
         for prompt in prompt1:
-            prompts = make_prompt_by_categorical(WHOLE_PREFIX, prompt, Categorical1, df)
-            image_id += [{"prompt": prompt, "color": color, "texture": texture, "image_id": generate_image(prompt, image_id, image_prefix)} for prompt, color, texture in prompts]
+            prompts = make_prompt_by_categorical(
+                WHOLE_PREFIX, prompt, Categorical1, df)
+            image_id += [{"prompt": prompt, "color": color, "texture": texture, "image_id": generate_image(
+                prompt, image_id, image_prefix)} for prompt, color, texture in prompts]
         return image_id
     prompts = make_prompt_by_categorical(
         WHOLE_PREFIX, prompt1, Categorical1, df)
@@ -187,19 +188,11 @@ def generate_whole(prompt1: Union[str, List], Categorical1: List, Numerical: Lis
 
 
 def generate_combination(image_id: List, prompt1: Union[str, List], prompt2: str, Categorical1: List, Categorical2: List, df: pd.DataFrame, Numerical: List, *args, **kwargs):
-    sub_prompts = make_prompt_by_categorical(COMBINATION_PREDIX, prompt2, Categorical2, df)
-    main_images = []
-    sub_images = []
-    for id in image_id:
-        if "main" in image_id:
-            for main_prompt in prompt1:
-                main_prompts = make_prompt_by_categorical(COMBINATION_PREDIX, main_prompt, Categorical1, df)
-                main_images+=generate_whole(main_prompt, Categorical1, Numerical, df, id)
-        else:
-            for sub_prompt in sub_prompts:
-                sub_images+=generate_partial(sub_prompt, Categorical2, Numerical, df, id, "sub_")
-        
-
+    main_images = generate_whole(
+        prompt1, Categorical1, Numerical, df, image_id[:-1], "main_generated_")
+    sub_image = generate_partial(
+        prompt2, Categorical2, Numerical, df, image_id[-1], "sub_generated_")
+    return main_images + sub_image
 
 
 def generate_image(prompt: str, image_id: str, image_prefix: None = None):
@@ -226,8 +219,8 @@ DESIGN = {
 }
 
 
-def regenerate_by_prompt(image_id:str, design: str, prompt: str, color: Optional[str]=None, texture: Optional[str] = None):
-    prefix = PARTIAL_PREFIX if design=="partial" else WHOLE_PREFIX if design=="whole" else COMBINATION_PREDIX
+def regenerate_by_prompt(image_id: str, design: str, prompt: str, color: Optional[str] = None, texture: Optional[str] = None):
+    prefix = PARTIAL_PREFIX if design == "partial" else WHOLE_PREFIX if design == "whole" else COMBINATION_PREDIX
     regenerate_prompt = f"{prefix}{f'{color} {texture}' if color and texture else color if color else texture} {prompt}"
     image_id = generate_image(regenerate_prompt, image_id)
     return {
@@ -238,4 +231,5 @@ def regenerate_by_prompt(image_id:str, design: str, prompt: str, color: Optional
     }
 
 
-
+def numerical_partial():
+    pass

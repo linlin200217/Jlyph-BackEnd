@@ -1,8 +1,11 @@
-.venv/
-
-*.pyc
 __pycache__/
-
+data/*
+resources/*
+*.ipynb
+*.zip
+venv/
+test*
+*.pyc
 instance/
 
 .pytest_cache/
