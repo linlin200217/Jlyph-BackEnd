@@ -1,8 +1,8 @@
 from flask import Flask, request, jsonify, send_file
 from werkzeug.utils import secure_filename
 import os
-from utils import COLOR, TEXTURE, data_process, make_glyph, IMAGE_RESOURCE_PATH, DATAPATH, generate_glyph, regenerate_by_prompt
-
+from utils import COLOR, TEXTURE, data_process, make_glyph, IMAGE_RESOURCE_PATH, DATAPATH, generate_glyph, \
+    regenerate_by_prompt
 
 app = Flask(__name__)
 
@@ -112,6 +112,7 @@ def regenerate():
     """
     return regenerate_by_prompt(**request.form)
 
+
 @app.route('/color')
 def get_color():
     """
@@ -126,6 +127,7 @@ def get_color():
     """
     exist_color = request.form["exist_color"]
     return jsonify({"color": set(COLOR) - set(exist_color)})
+
 
 @app.route('/texture')
 def get_texture():
@@ -143,7 +145,6 @@ def get_texture():
     return jsonify({"color": set(TEXTURE) - set(exist_texture)})
 
 
-
 @app.route("/image/<image_id>")
 def get_image(image_id):
     """
@@ -151,8 +152,8 @@ def get_image(image_id):
     return:
         image
     """
-    return send_file(os.path.join(IMAGE_RESOURCE_PATH, image_id+".png"))
+    return send_file(os.path.join(IMAGE_RESOURCE_PATH, image_id + ".png"))
 
 
-if __name__=="__main__":
+if __name__ == "__main__":
     app.run(port=8000)
