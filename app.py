@@ -145,6 +145,24 @@ def get_texture():
     return jsonify({"color": set(TEXTURE) - set(exist_texture)})
 
 
+@app.route("/process")
+def image_process():
+    """
+    {
+        design: "partial" | "whole" | "combination",
+        images: [
+            {image_id: str, color: str, texture: str, shape?: str}
+            ...
+        ],
+        Numerical: ["number","size","opacity"...]， # ["number" of sub, "number1" of main] if type of combbination
+        process_type: 0 | 1 | 2<note: only by combbination>,
+        size_of_whole?: int,
+        data_title: str
+    }
+    """
+    pass
+
+
 @app.route("/image/<image_id>")
 def get_image(image_id):
     """

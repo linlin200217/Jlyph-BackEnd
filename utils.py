@@ -1,4 +1,5 @@
 import datetime
+import math
 import os
 import random
 from typing import Union, List, Dict, Optional, Tuple
@@ -7,12 +8,20 @@ import cv2
 import gensim.downloader
 import nltk
 import numpy as np
+import pandas
 import pandas as pd
 import rembg
 import torch
-from PIL import Image
+from PIL import Image, ImageDraw
 from diffusers import StableDiffusionImg2ImgPipeline, StableDiffusionControlNetPipeline, ControlNetModel
 from nltk.stem import WordNetLemmatizer
+
+from process import (process_to_circle,
+                     process_to_radiation,
+                     process_to_transverse,
+                     process_to_vertical,
+                     scale_image,
+                     process_to_combination)
 
 IMAGE_RESOURCE_PATH = "./resources"
 DATAPATH = "./data"
@@ -49,6 +58,10 @@ def save_image(img: Image.Image, prefix: Optional[str], type: str = "png") -> st
     img.save(os.path.join(IMAGE_RESOURCE_PATH,
                           filename), format=type)
     return prefix + str(image_id)
+
+
+def get_image_by_id(image_id: str) -> Image.Image:
+    return Image.open(os.path.join(IMAGE_RESOURCE_PATH, image_id + ".png"))
 
 
 def data_process(data_path: str) -> Dict:
@@ -206,8 +219,7 @@ def generate_combination(image_id: List, prompt1: Union[str, List], prompt2: str
 
 
 def generate_image(prompt: str, image_id: str, image_prefix: None = None):
-    img = np.array(Image.open(os.path.join(
-        IMAGE_RESOURCE_PATH, image_id + ".png")))
+    img = np.array(get_image_by_id(image_id))
     low_threshold = 100
     high_threshold = 200
     img = cv2.Canny(img, low_threshold, high_threshold)
@@ -240,3 +252,89 @@ def regenerate_by_prompt(image_id: str, design: str, prompt: str, color: Optiona
         "texture": texture,
         "color": color,
     }
+
+
+# image process
+
+def numerical_partial(image: Image.Image,
+                      color: Optional[str],
+                      texture: Optional[str],
+                      numerical: str,
+                      df: pandas.DataFrame,
+                      process_type: str,
+                      image_pipe: List,
+                      *args, **kwargs):
+    data = df[(color is None or df["color"] == color) & (texture is None or df["texture"] == texture)]
+    if numerical == "number":
+        for number in data[numerical]:
+            image_pipe.append(scale_image(process_to_radiation(image, number)) if process_type
+                              else process_to_circle(image, number))
+    if numerical == "size":
+        pass
+
+
+def numerical_whole(image: Image.Image,
+                    color: Optional[str],
+                    texture: Optional[str],
+                    size_of_whole: int,
+                    numerical: str,
+                    df: pandas.DataFrame,
+                    process_type: int,
+                    image_pipe: List,
+                    *args, **kwargs):
+    data = df[(color is None or df["color"] == color) & (texture is None or df["texture"] == texture)]
+    if numerical == "number":
+        for number in data[numerical]:
+            image_pipe.append(process_to_transverse(image, size_of_whole, number) if process_type
+                              else process_to_vertical(image, size_of_whole, number))
+    if numerical == "size":
+        pass
+
+
+def numerical_combination(image: Image.Image,
+                          color: Optional[str],
+                          texture: Optional[str],
+                          df: pandas.DataFrame,
+                          process_type: int,
+                          numerical: str,
+                          sub_image: Image.Image,
+                          image_pipe: List,
+                          *args, **kwargs):
+    data = df[(color is None or df["color"] == color) & (texture is None or df["texture"] == texture)]
+    if process_type:
+        if numerical == "number1":
+            for sub_of_number, number in zip(data["number"], data[numerical]):
+                main_image = scale_image(process_to_radiation(image, number)) if process_type else process_to_circle(
+                    image, number)
+                image_pipe.append(process_to_combination(main_image, sub_image, sub_of_number, (250, 250), 200))
+
+        if numerical == "size":
+            pass
+
+
+PROCESS = {
+    "partial": numerical_partial,
+    "whole": numerical_whole,
+    "combination": numerical_combination
+}
+
+
+def process_image_by_numerical(data: Dict):
+    data_title = data["data_title"]
+    df = pd.read_csv(os.path.join(DATAPATH, data_title + ".csv"))
+    images = data.get("images")
+    Numerical = data.get("Numerical")
+    design = data.get("design")
+    sub_image = get_image_by_id(images[-1]) if design == "combination" else None
+    images = images[:-1] if design == "combination" else images
+
+    for item in images:
+        image_id = item.get("image_id")
+        color = item.get("color")
+        texture = item.get("texture")
+
+        image = get_image_by_id(image_id)
+        image_pipe = []
+        for numerical in Numerical:
+            PROCESS[design](image=image, color=color, texture=texture, df=df, numerical=numerical,
+                            image_pipe=image_pipe, sub_image=sub_image, **data)
