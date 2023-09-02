@@ -2,7 +2,7 @@ from flask import Flask, request, jsonify, send_file
 from werkzeug.utils import secure_filename
 import os
 from utils import COLOR, TEXTURE, data_process, make_glyph, IMAGE_RESOURCE_PATH, DATAPATH, generate_glyph, \
-    regenerate_by_prompt
+    regenerate_by_prompt, process_image_by_numerical
 
 app = Flask(__name__)
 
@@ -160,7 +160,7 @@ def image_process():
         data_title: str
     }
     """
-    pass
+    return jsonify({"status": "ok", "image_id": process_image_by_numerical(request.form)})
 
 
 @app.route("/image/<image_id>")

@@ -138,7 +138,7 @@ def process_to_vertical(image: Image.Image, shift_amount: int, number: int):
     return output_image
 
 
-def process_to_combination(main_image, sub_image, sub_of_num, circle_center, circle_radius) -> Image.Image:
+def process_to_combination(main_image, sub_image, sub_of_num, circle_center=(250, 250), circle_radius: int = 200) -> Image.Image:
     width, height = sub_image.size
     new_width = int(width * 0.2)
     new_height = int(height * 0.2)

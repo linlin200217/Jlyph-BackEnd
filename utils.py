@@ -270,7 +270,24 @@ def numerical_partial(image: Image.Image,
             image_pipe.append(scale_image(process_to_radiation(image, number)) if process_type
                               else process_to_circle(image, number))
     if numerical == "size":
-        pass
+        for idx, size in enumerate(data[numerical]):
+            image_width, image_height = scale_size(df[numerical].max(), df[numerical].min(), size, image)
+            if image_pipe:
+                image_pipe[idx] = image_pipe[idx].resize((image_width, image_height))
+            else:
+                image_pipe.append(image.resize((image_width, image_height)))
+    if numerical == "opacity":
+        for idx, opacity in enumerate(df[numerical]):
+            if image_pipe:
+                image_pipe[idx] = set_alpha(image_pipe[idx],
+                                            calculate_opacity(df[numerical].max(),
+                                                              df[numerical].min(),
+                                                              opacity))
+            else:
+                image_pipe.append(set_alpha(image,
+                                            calculate_opacity(df[numerical].max(),
+                                                              df[numerical].min(),
+                                                              opacity)))
 
 
 def numerical_whole(image: Image.Image,
@@ -288,7 +305,24 @@ def numerical_whole(image: Image.Image,
             image_pipe.append(process_to_transverse(image, size_of_whole, number) if process_type
                               else process_to_vertical(image, size_of_whole, number))
     if numerical == "size":
-        pass
+        for idx, size in enumerate(data[numerical]):
+            image_width, image_height = scale_size(df[numerical].max(), df[numerical].min(), size, image)
+            if image_pipe:
+                image_pipe[idx] = image_pipe[idx].resize((image_width, image_height))
+            else:
+                image_pipe.append(image.resize((image_width, image_height)))
+    if numerical == "opacity":
+        for idx, opacity in enumerate(df[numerical]):
+            if image_pipe:
+                image_pipe[idx] = set_alpha(image_pipe[idx],
+                                            calculate_opacity(df[numerical].max(),
+                                                              df[numerical].min(),
+                                                              opacity))
+            else:
+                image_pipe.append(set_alpha(image,
+                                            calculate_opacity(df[numerical].max(),
+                                                              df[numerical].min(),
+                                                              opacity)))
 
 
 def numerical_combination(image: Image.Image,
@@ -301,15 +335,39 @@ def numerical_combination(image: Image.Image,
                           image_pipe: List,
                           *args, **kwargs):
     data = df[(color is None or df["color"] == color) & (texture is None or df["texture"] == texture)]
-    if process_type:
-        if numerical == "number1":
-            for sub_of_number, number in zip(data["number"], data[numerical]):
-                main_image = scale_image(process_to_radiation(image, number)) if process_type else process_to_circle(
-                    image, number)
-                image_pipe.append(process_to_combination(main_image, sub_image, sub_of_number, (250, 250), 200))
-
-        if numerical == "size":
-            pass
+    if numerical == "number1" and process_type:
+            for sub_of_number, main_number in zip(data["number"], data[numerical]):
+                main_image = scale_image(process_to_radiation(image, main_number)) if process_type\
+                    else process_to_circle(image, main_number)
+                image_pipe.append(process_to_combination(main_image, sub_image, sub_of_number))
+    if numerical == "number" and process_type == 0:
+        for number in data[numerical]:
+            image_pipe.append(process_to_combination(image, sub_image, number))
+    if numerical == "size":
+        for idx, size in enumerate(df[numerical]):
+            if image_pipe:
+                image_pipe[idx] = image_pipe[idx].resize(
+                    scale_size(df[numerical].max(), df[numerical].min(), size, image))
+            else:
+                image_pipe.append(
+                    process_to_combination(
+                        resize_image_of_combination(image, size),
+                        sub_image,
+                        df["number"][idx]
+                    )
+                )
+    if numerical == "opacity":
+        for idx, opacity in enumerate(df[numerical]):
+            if image_pipe:
+                image_pipe[idx] = set_alpha(image_pipe[idx],
+                                            calculate_opacity(df[numerical].max(),
+                                                              df[numerical].min(),
+                                                              opacity))
+            else:
+                image_pipe.append(set_alpha(image,
+                                            calculate_opacity(df[numerical].max(),
+                                                              df[numerical].min(),
+                                                              opacity)))
 
 
 PROCESS = {
@@ -317,6 +375,18 @@ PROCESS = {
     "whole": numerical_whole,
     "combination": numerical_combination
 }
+
+
+def scale_size(max_of_data, min_of_data, size, image) -> Tuple[int, int]:
+    loss = max_of_data - min_of_data
+    image_width = image.size[0] + (image.size[0] / loss) * (size - loss)
+    image_height = image.size[1] + (image.size[1] / loss) * (size - loss)
+    return int(image_width), int(image_height)
+
+
+def calculate_opacity(max_of_opacity, min_of_opacity, opacity):
+    loss = max_of_opacity - min_of_opacity
+    return 25 + (75 / loss) * (opacity - loss)
 
 
 def process_image_by_numerical(data: Dict):
@@ -328,6 +398,7 @@ def process_image_by_numerical(data: Dict):
     sub_image = get_image_by_id(images[-1]) if design == "combination" else None
     images = images[:-1] if design == "combination" else images
 
+    result_images = []
     for item in images:
         image_id = item.get("image_id")
         color = item.get("color")
@@ -338,3 +409,60 @@ def process_image_by_numerical(data: Dict):
         for numerical in Numerical:
             PROCESS[design](image=image, color=color, texture=texture, df=df, numerical=numerical,
                             image_pipe=image_pipe, sub_image=sub_image, **data)
+        result_images += image_pipe
+    return [save_image(img, "res_") for img in result_images]
+
+
+def resize_image_of_combination(image, scale_factor):
+    # 加载图像
+    # 获取图像的尺寸
+    original_width, original_height = image.size
+
+    # 计算新的尺寸
+    new_width = int(original_width * scale_factor)
+    new_height = int(original_height * scale_factor)
+
+    # 缩小狗的图像
+    resized_dog_image = image.resize((new_width, new_height), Image.ANTIALIAS)
+
+    # 创建一个透明背景图像
+    background = Image.new('RGBA', (original_width, original_height), (0, 0, 0, 0))
+
+    # 计算粘贴的位置（使狗的图像在背景中居中）
+    paste_x = (original_width - new_width) // 2
+    paste_y = (original_height - new_height) // 2
+
+    # 粘贴缩小的狗图像到背景中
+    background.paste(resized_dog_image, (paste_x, paste_y), resized_dog_image)
+
+    return background
+
+
+def set_alpha(img, alpha_percentage) -> Image.Image:
+    """
+    调整图像的透明度。
+
+    参数:
+        img (Image.Image): 一个Pillow图像实例。
+        alpha_percentage (float): 透明度百分比，范围在0到100之间。0表示完全透明，100表示不透明。
+
+    返回:
+        Image.Image: 调整透明度后的图像。
+    """
+    assert 0 <= alpha_percentage <= 100, "Alpha percentage should be between 0 and 100."
+
+    # 如果原图不是RGBA模式，转化为RGBA模式
+    img = img.convert("RGBA")
+
+    # 获取图像的每个像素的RGBA值
+    datas = img.getdata()
+
+    new_data = []
+    for item in datas:
+        # 修改alpha值
+        new_data.append((item[0], item[1], item[2], int(item[3] * alpha_percentage / 100)))
+
+    # 应用新的透明度数据
+    img.putdata(new_data)
+
+    return img
