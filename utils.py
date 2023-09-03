@@ -3,13 +3,10 @@ import math
 import os
 import random
 from typing import Union, List, Dict, Optional, Tuple
-
 import cv2
 import gensim.downloader
 import nltk
 import numpy as np
-import pandas
-import pandas as pd
 import rembg
 import torch
 from PIL import Image, ImageDraw
@@ -22,6 +19,10 @@ from process import (process_to_circle,
                      process_to_vertical,
                      scale_image,
                      process_to_combination)
+import matplotlib.pyplot as plt
+import pandas as pd
+from matplotlib.offsetbox import OffsetImage, AnnotationBbox
+from mpl_toolkits.basemap import Basemap
 
 IMAGE_RESOURCE_PATH = "./resources"
 DATAPATH = "./data"
@@ -260,7 +261,7 @@ def numerical_partial(image: Image.Image,
                       color: Optional[str],
                       texture: Optional[str],
                       numerical: str,
-                      df: pandas.DataFrame,
+                      df: pd.DataFrame,
                       process_type: str,
                       image_pipe: List,
                       *args, **kwargs):
@@ -295,7 +296,7 @@ def numerical_whole(image: Image.Image,
                     texture: Optional[str],
                     size_of_whole: int,
                     numerical: str,
-                    df: pandas.DataFrame,
+                    df: pd.DataFrame,
                     process_type: int,
                     image_pipe: List,
                     *args, **kwargs):
@@ -328,7 +329,7 @@ def numerical_whole(image: Image.Image,
 def numerical_combination(image: Image.Image,
                           color: Optional[str],
                           texture: Optional[str],
-                          df: pandas.DataFrame,
+                          df: pd.DataFrame,
                           process_type: int,
                           numerical: str,
                           sub_image: Image.Image,
@@ -336,10 +337,10 @@ def numerical_combination(image: Image.Image,
                           *args, **kwargs):
     data = df[(color is None or df["color"] == color) & (texture is None or df["texture"] == texture)]
     if numerical == "number1" and process_type:
-            for sub_of_number, main_number in zip(data["number"], data[numerical]):
-                main_image = scale_image(process_to_radiation(image, main_number)) if process_type\
-                    else process_to_circle(image, main_number)
-                image_pipe.append(process_to_combination(main_image, sub_image, sub_of_number))
+        for sub_of_number, main_number in zip(data["number"], data[numerical]):
+            main_image = scale_image(process_to_radiation(image, main_number)) if process_type \
+                else process_to_circle(image, main_number)
+            image_pipe.append(process_to_combination(main_image, sub_image, sub_of_number))
     if numerical == "number" and process_type == 0:
         for number in data[numerical]:
             image_pipe.append(process_to_combination(image, sub_image, number))
@@ -466,3 +467,273 @@ def set_alpha(img, alpha_percentage) -> Image.Image:
     img.putdata(new_data)
 
     return img
+
+
+def draw_dashed_line(draw, start, end, fill='black', width=1, dash_length=10, space_length=5):
+    """绘制虚线"""
+    x1, y1 = start
+    x2, y2 = end
+    dx = x2 - x1
+    dy = y2 - y1
+    length = dash_length + space_length
+    dash_count = int(math.sqrt(dx ** 2 + dy ** 2) // length)
+
+    for i in range(dash_count):
+        start_x = x1 + dx * (i / dash_count)
+        start_y = y1 + dy * (i / dash_count)
+        end_x = x1 + dx * ((i + 1) / dash_count)
+        end_y = y1 + dy * ((i + 1) / dash_count)
+        if i % 2 == 0:  # Only draw every other segment to create dashed effect
+            draw.line([(start_x, start_y), (end_x, end_y)], fill=fill, width=width)
+
+
+def make_grid(
+        images: List[str],
+        border_thickness: int,
+        color_fill: str,
+        dashed: bool,
+        draw_lines: bool,
+        background_mode: str,
+        background_color: str,
+        *args, **kwargs) -> str:
+    def center_crop(image, target_width, target_height):
+        """裁剪图像使其大小为目标宽度和高度，同时保持中间的内容不变。"""
+        center_x = image.width // 2
+        center_y = image.height // 2
+
+        left = center_x - target_width // 2
+        top = center_y - target_height // 2
+        right = center_x + target_width // 2
+        bottom = center_y + target_height // 2
+
+        return image.crop((left, top, right, bottom))
+
+    flower_images = [get_image_by_id(image_id) for image_id in images]
+    N = math.ceil(math.sqrt(len(flower_images)))
+
+    output_width = N * 400
+    output_height = N * 400
+
+    if background_mode == "transparent":
+        output_image = Image.new('RGBA', (output_width, output_height), (255, 255, 255, 0))
+    elif background_mode == "color":
+        output_image = Image.new('RGBA', (output_width, output_height), background_color)
+
+    # 将每张花的图片粘贴到网格的背景图像上
+    for idx, flower_image in enumerate(flower_images):
+        row = idx // N
+        col = idx % N
+
+        cropped_flower = center_crop(flower_image, 400, 400)
+        x_offset = col * 400
+        y_offset = row * 400
+        output_image.paste(cropped_flower, (x_offset, y_offset), cropped_flower)
+
+    # 在网格上添加黑色边框
+    draw = ImageDraw.Draw(output_image)
+
+    # 绘制垂直线
+    if draw_lines:
+        for i in range(1, N ** 2):
+            x = i * 400
+            if dashed:
+                draw_dashed_line(draw, (x, 0), (x, output_height), fill=color_fill, width=border_thickness)
+            else:
+                draw.line([(x, 0), (x, output_height)], fill=color_fill, width=border_thickness)
+
+    # 绘制水平线
+    if draw_lines:
+        for i in range(1, N ** 2):
+            y = i * 400
+            if dashed:
+                draw_dashed_line(draw, (0, y), (output_width, y), fill=color_fill, width=border_thickness)
+            else:
+                draw.line([(0, y), (output_width, y)], fill=color_fill, width=border_thickness)
+
+    return save_image(output_image.resize((512, 512)), "placement_")
+
+
+def make_struct(
+        images: List[str],
+        data_title: str,
+        column1: str,
+        column2: str,
+        background_type: str,
+        background_color: str,
+        canvas_color: str,
+        text_size: int,
+        text_color: str,
+        grid_color: str,
+        show_grid: bool,
+        *args, **kwargs
+) -> str:
+    df = pd.read_csv(os.path.join(DATAPATH, data_title + ".csv"))
+    fig, ax = plt.subplots(figsize=(5.12, 5.12), dpi=500)
+
+    images = [get_image_by_id(image_id) for image_id in images]
+
+    # 设置背景
+    if background_type == 'transparent':
+        fig.patch.set_alpha(0)
+        ax.patch.set_alpha(0)
+    elif background_type == 'color':
+        fig.patch.set_facecolor(canvas_color)
+        ax.set_facecolor(background_color)
+
+    # 在指定的year和score位置上放置图片
+    for x_data, y_data, img in zip(df[column1], df[column2], images):
+        imagebox = OffsetImage(img, zoom=0.15)  # 这里的zoom可以调整
+        ab = AnnotationBbox(imagebox, (x_data, y_data), frameon=False)
+        ax.add_artist(ab)
+
+    # 设定x轴和y轴的标签以及其样式
+    ax.set_xlabel(column1, fontsize=text_size, color=text_color, weight='bold')
+    ax.set_ylabel(column2, fontsize=text_size, color=text_color, weight='bold')
+    ax.scatter(df[column1], df[column2], alpha=0)  # 透明的散点，只为确定轴的范围
+
+    # 设置轴的颜色
+    ax.spines['bottom'].set_color(text_color)
+    ax.spines['top'].set_color(text_color)
+    ax.spines['left'].set_color(text_color)
+    ax.spines['right'].set_color(text_color)
+    ax.tick_params(axis='both', colors=text_color,
+                   which='major', labelsize=text_size)
+
+    # 显示网格
+    if show_grid:
+        ax.grid(True, which='both', linestyle='--',
+                linewidth=1.5, color=grid_color)
+        ax.set_axisbelow(True)
+
+    # 保存图形
+    plt.tight_layout()
+    filename = f'placement_{int(datetime.datetime.now().timestamp())}'
+    plt.savefig(filename + ".png", dpi=500, bbox_inches='tight', pad_inches=0,
+                transparent=True if background_type == 'transparent' else False)
+    return filename
+
+
+def make_geo(
+        images: List[str],
+        data_title: str,
+        column1: str,
+        column2: str,
+        fill_color: str,
+        continent_color: str,
+        countries_color: str,
+        linestyle: str,
+        coastlines: str,
+        lake_color: str,
+        *args, **kwargs
+
+) -> str:
+    data = pd.read_csv(os.path.join(DATAPATH, data_title + ".csv"))
+    images = [get_image_by_id(image_id) for image_id in images]
+
+    # 计算涵盖所有城市的经纬度范围
+    lats = data[column1]
+    lons = data[column2]
+
+    # 初始化地图
+    fig, ax = plt.subplots(figsize=(5.12, 5.12), dpi=500)
+    m = Basemap(projection='merc', resolution='i',
+                llcrnrlon=min(lons) - 5, urcrnrlon=max(lons) + 5,
+                llcrnrlat=min(lats) - 5, urcrnrlat=max(lats) + 5, ax=ax)
+
+    # 设置地图的颜色和边框
+    m.drawmapboundary(fill_color=fill_color, linewidth=0)
+    m.fillcontinents(color=continent_color, lake_color=lake_color)
+    m.drawcountries(linewidth=2, linestyle=linestyle, color=countries_color)
+    m.drawcoastlines(linewidth=0.5, color=coastlines)
+
+    # 在地图上添加城市的图片
+    for lat, lon, image in zip(lats, lons, images):
+        x, y = m(lat, lon)
+        size_factor = 0.1  # 使图片大小与年份相关
+        img = OffsetImage(image, zoom=size_factor)
+        ax.add_artist(AnnotationBbox(img, (x, y), frameon=False))
+
+    filename = f'placement_{int(datetime.datetime.now().timestamp())}'
+    plt.savefig(filename + ".png", dpi=500)
+    return filename
+
+
+def make_drawer_by_height(images: List[str],
+                          draw_lines: bool,
+                          line_width: int,
+                          line_color: str,
+                          # dashed: bool,
+                          background_color: Optional[str] = None,
+                          *args, **kwargs) -> str:
+    images = [get_image_by_id(image_id) for image_id in images]
+    total_height = sum(img.height for img in images)
+
+    result_image = Image.new('RGBA', (total_height, total_height), background_color)
+    y_offset = 0
+
+    for i, img in enumerate(images):
+        result_image.paste(img, (0, y_offset), img)
+        if draw_lines:
+            draw = ImageDraw.Draw(result_image)
+            if draw_lines:
+                draw.line([(0, y_offset), (total_height, y_offset)], fill=line_color, width=line_width)
+
+            y_offset += img.height
+            y_offset += line_width
+    return save_image(Image.fromqimage(result_image.toqimage()), "placement_")
+
+
+def make_drawer_by_width(images: List[str],
+                         draw_lines: bool,
+                         line_width: int,
+                         line_color: str,
+                         background_color: Optional[str] = None,
+                         *args, **kwargs):
+    images = [get_image_by_id(image_id) for image_id in images]
+    total_width = sum(img.width for img in images)
+
+    result_image = Image.new('RGBA', (total_width, total_width), background_color)
+    x_offset = 0
+
+    for i, img in enumerate(images):
+        result_image.paste(img, (x_offset, 0), img)
+        draw = ImageDraw.Draw(result_image)
+
+        if draw_lines:
+            draw.line([(x_offset, 0), (x_offset, total_width)], fill=line_color, width=line_width)
+        x_offset += img.width
+        x_offset += line_width
+
+    return result_image
+
+
+def placement_partial_combination(data: Dict) -> str:
+    method = data.get("method")
+    if method == "grid":
+        return make_grid(**data)
+    if method == "struct":
+        return make_struct(**data)
+    if method == "geo":
+        return make_geo(**data)
+
+
+def placement_whole(data: Dict):
+    method = data.get("method")
+    if method == "grid":
+        return make_drawer_by_height(**data) if data.get("drawer_by") == "height" \
+            else make_drawer_by_width(**data)
+    if method == "struct":
+        return make_struct(**data)
+    if method == "geo":
+        return make_geo(**data)
+
+
+def placement(data):
+    return PLACEMENT[data.get("design")](data)
+
+
+PLACEMENT = {
+    "partial": placement_partial_combination,
+    "whole": placement_whole,
+    "combination": placement_partial_combination
+}

@@ -2,7 +2,7 @@ from flask import Flask, request, jsonify, send_file
 from werkzeug.utils import secure_filename
 import os
 from utils import COLOR, TEXTURE, data_process, make_glyph, IMAGE_RESOURCE_PATH, DATAPATH, generate_glyph, \
-    regenerate_by_prompt, process_image_by_numerical
+    regenerate_by_prompt, process_image_by_numerical, placement
 
 app = Flask(__name__)
 
@@ -107,7 +107,6 @@ def regenerate():
         prompt: str,
         texture?: str,
         color?: str
-
     }
     """
     return regenerate_by_prompt(**request.form)
@@ -152,15 +151,47 @@ def image_process():
         design: "partial" | "whole" | "combination",
         images: [
             {image_id: str, color: str, texture: str, shape?: str}
-            ...
         ],
         Numerical: ["number","size","opacity"...]， # ["number" of sub, "number1" of main] if type of combbination
         process_type: 0 | 1 | 2<note: only by combbination>,
         size_of_whole?: int,
         data_title: str
     }
+
+    retrun {
+        status: str,
+        images: list[str]
+    }
     """
-    return jsonify({"status": "ok", "image_id": process_image_by_numerical(request.form)})
+    return jsonify({"status": "success", "images": process_image_by_numerical(request.form)})
+
+
+@app.route("/placement")
+def placement_image():
+    """
+    {
+        design: "partial" | "whole" | "combination",
+        drawer_by: "width" | "height",
+        images: list[str],
+        method: "grid" | "struct" | "geo",
+        data_title: str,
+        border_thickness: int,
+        color_fill: str,
+        dashed: bool,
+        line_width: int,
+        line_color: str,
+        draw_lines: bool,
+        canvas_color: str,
+        background_type: str, # Choose from ['transparent', 'color']
+        background_color: str,
+    }
+    return
+    {
+        status: "success",
+        image_id: str
+    }
+    """
+    return jsonify({"status": "success", "image_id": placement(request.form)})
 
 
 @app.route("/image/<image_id>")
@@ -171,6 +202,9 @@ def get_image(image_id):
         image
     """
     return send_file(os.path.join(IMAGE_RESOURCE_PATH, image_id + ".png"))
+
+
+
 
 
 if __name__ == "__main__":
