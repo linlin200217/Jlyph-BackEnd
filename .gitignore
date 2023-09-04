@@ -7,7 +7,7 @@ venv/
 test*
 *.pyc
 instance/
-
+.idea/
 .pytest_cache/
 .coverage
 htmlcov/
