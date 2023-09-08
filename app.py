@@ -84,6 +84,7 @@ async def generate():
                 {prompt: promt2 | subprompt2, texture?: str, color?: str, image_id: <image_id of str>},
             ]
     }
+
     """
     image_id = generate_glyph(request.form)
     return jsonify({"status": "success", "image_id": image_id})
@@ -162,6 +163,20 @@ def image_process():
         status: str,
         images: list[str]
     }
+    
+    局部：
+    categorical：color，texture
+    Numerical：Size，number，opacity
+
+    整体：
+    categorical：color，texture，shape
+    numerical：SIze，number，opacity
+
+    组合：
+    categorical：color_main, color_auxiliary, texture_main, texture_auxiliary, shape_main
+    Numerical: Number_main, Number_auxiliary, Size, Opacity
+    注：只有在没有选择shape_main的前提下才可以选择Number_main，换句话说，如果选择了shape_main就没有number_main的选择。如果选择了number_main，就没有shape_main的选择。
+    
     """
     return jsonify({"status": "success", "images": process_image_by_numerical(request.form)})
 
