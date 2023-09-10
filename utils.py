@@ -266,28 +266,30 @@ def numerical_partial(image: Image.Image,
                       image_pipe: List,
                       *args, **kwargs):
     data = df[(color is None or df["color"] == color) & (texture is None or df["texture"] == texture)]
-    if numerical == "number":
-        for number in data[numerical]:
+    column_name = numerical["column"]
+    column_value = numerical["value"]
+    if column_name == "number":
+        for number in data[column_value]:
             image_pipe.append(scale_image(process_to_radiation(image, number)) if process_type
                               else process_to_circle(image, number))
-    if numerical == "size":
-        for idx, size in enumerate(data[numerical]):
-            image_width, image_height = scale_size(df[numerical].max(), df[numerical].min(), size, image)
+    if column_name == "size":
+        for idx, size in enumerate(data[column_value]):
+            image_width, image_height = scale_size(df[column_value].max(), df[column_value].min(), size, image)
             if image_pipe:
                 image_pipe[idx] = image_pipe[idx].resize((image_width, image_height))
             else:
                 image_pipe.append(image.resize((image_width, image_height)))
-    if numerical == "opacity":
-        for idx, opacity in enumerate(df[numerical]):
+    if column_name == "opacity":
+        for idx, opacity in enumerate(df[column_value]):
             if image_pipe:
                 image_pipe[idx] = set_alpha(image_pipe[idx],
-                                            calculate_opacity(df[numerical].max(),
-                                                              df[numerical].min(),
+                                            calculate_opacity(df[column_value].max(),
+                                                              df[column_value].min(),
                                                               opacity))
             else:
                 image_pipe.append(set_alpha(image,
-                                            calculate_opacity(df[numerical].max(),
-                                                              df[numerical].min(),
+                                            calculate_opacity(df[column_value].max(),
+                                                              df[column_value].min(),
                                                               opacity)))
 
 
@@ -301,28 +303,30 @@ def numerical_whole(image: Image.Image,
                     image_pipe: List,
                     *args, **kwargs):
     data = df[(color is None or df["color"] == color) & (texture is None or df["texture"] == texture)]
-    if numerical == "number":
-        for number in data[numerical]:
+    column_name = numerical["column"]
+    column_value = numerical["value"]
+    if column_name == "number":
+        for number in data[column_value]:
             image_pipe.append(process_to_transverse(image, size_of_whole, number) if process_type
                               else process_to_vertical(image, size_of_whole, number))
-    if numerical == "size":
-        for idx, size in enumerate(data[numerical]):
-            image_width, image_height = scale_size(df[numerical].max(), df[numerical].min(), size, image)
+    if column_name == "size":
+        for idx, size in enumerate(data[column_value]):
+            image_width, image_height = scale_size(df[column_value].max(), df[column_value].min(), size, image)
             if image_pipe:
                 image_pipe[idx] = image_pipe[idx].resize((image_width, image_height))
             else:
                 image_pipe.append(image.resize((image_width, image_height)))
-    if numerical == "opacity":
-        for idx, opacity in enumerate(df[numerical]):
+    if column_name == "opacity":
+        for idx, opacity in enumerate(df[column_value]):
             if image_pipe:
                 image_pipe[idx] = set_alpha(image_pipe[idx],
-                                            calculate_opacity(df[numerical].max(),
-                                                              df[numerical].min(),
+                                            calculate_opacity(df[column_value].max(),
+                                                              df[column_value].min(),
                                                               opacity))
             else:
                 image_pipe.append(set_alpha(image,
-                                            calculate_opacity(df[numerical].max(),
-                                                              df[numerical].min(),
+                                            calculate_opacity(df[column_value].max(),
+                                                              df[column_value].min(),
                                                               opacity)))
 
 

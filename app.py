@@ -189,7 +189,7 @@ def image_process():
     注：只有在没有选择shape_main的前提下才可以选择Number_main，换句话说，如果选择了shape_main就没有number_main的选择。如果选择了number_main，就没有shape_main的选择。
     
     """
-    return jsonify({"status": "success", "images": process_image_by_numerical(request.form)})
+    return jsonify({"status": "success", "images": process_image_by_numerical(request.json)})
 
 
 @app.route("/placement", methods=["POST"])
@@ -217,7 +217,7 @@ def placement_image():
         image_id: str
     }
     """
-    return jsonify({"status": "success", "image_id": placement(request.form)})
+    return jsonify({"status": "success", "image_id": placement(request.json)})
 
 
 @app.route("/image/<image_id>")
