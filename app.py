@@ -124,7 +124,7 @@ def get_color():
         color: list[str]
     }
     """
-    exist_color = request.form["exist_color"]
+    exist_color = request.json["exist_color"]
     return jsonify({"color": set(COLOR) - set(exist_color)})
 
 
@@ -140,7 +140,7 @@ def get_texture():
         texture: list[str]
     }
     """
-    exist_texture = request.form["exist_texture"]
+    exist_texture = request.json["exist_texture"]
     return jsonify({"color": set(TEXTURE) - set(exist_texture)})
 
 
