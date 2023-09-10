@@ -7,7 +7,7 @@ from utils import COLOR, TEXTURE, data_process, make_glyph, IMAGE_RESOURCE_PATH,
 app = Flask(__name__)
 
 
-@app.route("/upload")
+@app.route("/upload", methods=["POST"])
 async def load_data():
     """
     POST FILE
@@ -26,7 +26,7 @@ async def load_data():
         return jsonify(struct)
 
 
-@app.route("/pregenerate")
+@app.route("/pregenerate", methods=["POST"])
 async def pregenerate():
     """
     POST
@@ -51,7 +51,7 @@ async def pregenerate():
     return jsonify({"status": "success", "image_id": image_id})
 
 
-@app.route("/generate")
+@app.route("/generate", methods=["POST"])
 async def generate():
     """
     POST
@@ -90,7 +90,7 @@ async def generate():
     return jsonify({"status": "success", "image_id": image_id})
 
 
-@app.route("/regenerate")
+@app.route("/regenerate", methods=["POST"])
 def regenerate():
     """
     POST
@@ -113,7 +113,7 @@ def regenerate():
     return regenerate_by_prompt(**request.form)
 
 
-@app.route('/color')
+@app.route('/color', methods=["POST"])
 def get_color():
     """
     POST
@@ -129,7 +129,7 @@ def get_color():
     return jsonify({"color": set(COLOR) - set(exist_color)})
 
 
-@app.route('/texture')
+@app.route('/texture', methods=["POST"])
 def get_texture():
     """
     POST
@@ -145,7 +145,7 @@ def get_texture():
     return jsonify({"color": set(TEXTURE) - set(exist_texture)})
 
 
-@app.route("/process")
+@app.route("/process", methods=["POST"])
 def image_process():
     """
     {
@@ -181,7 +181,7 @@ def image_process():
     return jsonify({"status": "success", "images": process_image_by_numerical(request.form)})
 
 
-@app.route("/placement")
+@app.route("/placement", methods=["POST"])
 def placement_image():
     """
     {

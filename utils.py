@@ -124,11 +124,11 @@ def make_glyph(data: Dict) -> List[Dict[str, str]]:
     return image_id
 
 
-def make_partial(prompt1: str, guide1: int, img_prefix: Optional[str], *args, **kwargs) -> List[Dict[str, str]]:
+def make_partial(prompt1: str, guide1: int, img_prefix: Optional[str] = "partial_", *args, **kwargs) -> List[Dict[str, str]]:
     # guide: [0-2]
     prompt = PARTIAL_PREFIX + prompt1
     out = PIPE_SD(
-        prompt=prompt, image=MASK[guide1], strength=0.9, guidance_scale=20)
+        prompt=prompt, image=MASK[int(guide1)], strength=0.9, guidance_scale=20)
     return [{"prompt": prompt1, "image_id": save_image(out.images[0], img_prefix)}]
 
 
@@ -139,18 +139,18 @@ def make_whole(prompt1: Union[str, List], guide1: int, img_prefix: Optional[str]
         return [
             {"prompt": prompt,
              "image_id": save_image(PIPE_SD(prompt=WHOLE_PREFIX + prompt,
-                                            image=MASK[guide1], strength=0.9, guidance_scale=20).images[0], img_prefix)}
+                                            image=MASK[int(guide1)], strength=0.9, guidance_scale=20).images[0], img_prefix)}
             for prompt in prompt1
         ]
     prompt = WHOLE_PREFIX + prompt1
     out = PIPE_SD(
-        prompt=prompt, image=MASK[guide1], strength=0.9, guidance_scale=20)
+        prompt=prompt, image=MASK[int(guide1)], strength=0.9, guidance_scale=20)
     return [{"prompt": prompt1, "image_id": save_image(out.images[0], img_prefix)}]
 
 
 def make_combination(prompt1: Union[str, List], prompt2: str, guide1: int, guide2: int, *args, **kwargs):
-    main_image = make_whole(prompt1, guide1)
-    sub_image = make_partial(prompt2, guide2, "sub_")
+    main_image = make_whole(prompt1, int(guide1))
+    sub_image = make_partial(prompt2, int(guide2), "sub_")
     return main_image + sub_image
 
 
