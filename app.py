@@ -47,7 +47,7 @@ async def pregenerate():
             ]
         }
     """
-    image_id = make_glyph(request.form)
+    image_id = make_glyph(request.json)
     return jsonify({"status": "success", "image_id": image_id})
 
 
@@ -86,7 +86,7 @@ async def generate():
     }
 
     """
-    image_id = generate_glyph(request.form)
+    image_id = generate_glyph(request.json)
     return jsonify({"status": "success", "image_id": image_id})
 
 
@@ -99,7 +99,6 @@ def regenerate():
         image_id: str,
         design: "partial" | "whole" | "combination",
         prompt: str,
-        guide: 0 | 1 | 2,
         color?: str,
         texture?: str
     }
@@ -110,7 +109,7 @@ def regenerate():
         color?: str
     }
     """
-    return regenerate_by_prompt(**request.form)
+    return regenerate_by_prompt(**request.json)
 
 
 @app.route('/color', methods=["POST"])
@@ -153,7 +152,19 @@ def image_process():
         images: [
             {image_id: str, color: str, texture: str, shape?: str}
         ],
-        Numerical: ["number","size","opacity"...]， # ["number" of sub, "number1" of main] if type of combbination
+        Numerical: [
+            {
+            column: "number",
+            value: "xxxxxXXxx"
+            },
+            {
+            column: "size",
+            value: "xxxxxXXxx"
+            },
+            {
+            column: "opacity",
+            value: "xxxxxXXxx"
+            }], # ["number" of sub, "number1" of main] if type of combbination
         process_type: 0 | 1 | 2<note: only by combbination>,
         size_of_whole?: int,
         data_title: str

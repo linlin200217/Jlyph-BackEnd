@@ -181,7 +181,7 @@ def make_prompt_by_categorical(prefix: str, prompt: str, categorical: List, df: 
                     random.sample(_texture or TEXTURE, num)]
     else:
         num = _num or len({f"{column1}{column2}" for column1, column2 in zip(
-            df[categorical[0]["column"]], df[categorical[1]["column"]])})
+            df[categorical[0][item["column"]]], df[categorical[1][item["column"]]])})
         return [(f"{prefix}{color} {texture} {prompt}", color, texture) for color, texture in
                 zip(random.sample(_color or COLOR, num), random.sample(_texture or TEXTURE, num))]
 
@@ -331,24 +331,26 @@ def numerical_combination(image: Image.Image,
                           texture: Optional[str],
                           df: pd.DataFrame,
                           process_type: int,
-                          numerical: str,
+                          numerical: Dict,
                           sub_image: Image.Image,
                           image_pipe: List,
                           *args, **kwargs):
     data = df[(color is None or df["color"] == color) & (texture is None or df["texture"] == texture)]
-    if numerical == "number1" and process_type:
-        for sub_of_number, main_number in zip(data["number"], data[numerical]):
+    column_name = numerical["column"]
+    column_value = numerical["value"]
+    if column_name == "number1" and process_type:
+        for sub_of_number, main_number in zip(data["number"], data[column_value]):  # TODO: wait fix
             main_image = scale_image(process_to_radiation(image, main_number)) if process_type \
                 else process_to_circle(image, main_number)
             image_pipe.append(process_to_combination(main_image, sub_image, sub_of_number))
-    if numerical == "number" and process_type == 0:
-        for number in data[numerical]:
+    if column_name == "number" and process_type == 0:
+        for number in data[column_value]:
             image_pipe.append(process_to_combination(image, sub_image, number))
-    if numerical == "size":
-        for idx, size in enumerate(df[numerical]):
+    if column_name == "size":
+        for idx, size in enumerate(df[column_value]):
             if image_pipe:
                 image_pipe[idx] = image_pipe[idx].resize(
-                    scale_size(df[numerical].max(), df[numerical].min(), size, image))
+                    scale_size(df[column_value].max(), df[column_value].min(), size, image))
             else:
                 image_pipe.append(
                     process_to_combination(
@@ -357,17 +359,17 @@ def numerical_combination(image: Image.Image,
                         df["number"][idx]
                     )
                 )
-    if numerical == "opacity":
-        for idx, opacity in enumerate(df[numerical]):
+    if column_name == "opacity":
+        for idx, opacity in enumerate(df[column_name]):
             if image_pipe:
                 image_pipe[idx] = set_alpha(image_pipe[idx],
-                                            calculate_opacity(df[numerical].max(),
-                                                              df[numerical].min(),
+                                            calculate_opacity(df[column_name].max(),
+                                                              df[column_name].min(),
                                                               opacity))
             else:
                 image_pipe.append(set_alpha(image,
-                                            calculate_opacity(df[numerical].max(),
-                                                              df[numerical].min(),
+                                            calculate_opacity(df[column_name].max(),
+                                                              df[column_name].min(),
                                                               opacity)))
 
 
