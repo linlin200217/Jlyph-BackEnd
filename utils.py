@@ -386,8 +386,7 @@ def scale_size(max_of_data, min_of_data, size, image) -> Tuple[int, int]:
 
 
 def calculate_opacity(max_of_opacity, min_of_opacity, opacity):
-    loss = max_of_opacity - min_of_opacity
-    return 25 + (75 / loss) * (opacity - loss)
+    return 25 + ((opacity-min_of_opacity)/(max_of_opacity-min_of_opacity)) * (100-25)
 
 
 def process_image_by_numerical(data: Dict):
