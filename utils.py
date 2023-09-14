@@ -37,7 +37,7 @@ MASK_CIRCLE = Image.open("src/Mask_Circle.png")
 MASK_VERRECTANGLE = Image.open("src/Mask_VerRectangle.png")
 MASK_SQUARE = Image.open("src/Mask_Square.png")
 MASK = [MASK_CIRCLE, MASK_VERRECTANGLE, MASK_SQUARE]
-DEVICE = "cpu"
+DEVICE = "cuda"
 
 os.makedirs(IMAGE_RESOURCE_PATH, exist_ok=True)
 os.makedirs(DATAPATH, exist_ok=True)
@@ -52,9 +52,14 @@ PIPE_SDCC = StableDiffusionControlNetPipeline.from_pretrained("runwayml/stable-d
                                                               torch_dtype=torch.float16).to(DEVICE)
 
 
+nltk.download('punkt')
+nltk.download('averaged_perceptron_tagger')
+nltk.download('wordnet')
+
+
 def save_image(img: Image.Image, prefix: Optional[str], type: str = "png") -> str:
     prefix = prefix or "main_"
-    image_id = int(datetime.datetime.now().timestamp())
+    image_id = int(datetime.datetime.now().timestamp()+random.randrange(1,10000))
     filename = f"{prefix}{image_id}.{type}"
     img.save(os.path.join(IMAGE_RESOURCE_PATH,
                           filename), format=type)
@@ -212,8 +217,8 @@ def generate_whole(prompt1: Union[str, List], Categorical1: List, Numerical: Lis
 
 def generate_combination(image_id: List, prompt1: Union[str, List], prompt2: str, Categorical1: List,
                          Categorical2: List, df: pd.DataFrame, Numerical: List, *args, **kwargs):
-    main_images = generate_whole(
-        prompt1, Categorical1, Numerical, df, image_id[:-1], "main_generated_")
+    main_images = [generate_whole(
+        prompt1, Categorical1, Numerical, df, id_, "main_generated_") for id_ in image_id[:-1]]
     sub_image = generate_partial(
         prompt2, Categorical2, Numerical, df, image_id[-1], "sub_generated_")
     return main_images + sub_image
@@ -246,7 +251,7 @@ def regenerate_by_prompt(image_id: str, design: str, prompt: str, color: Optiona
                          texture: Optional[str] = None):
     prefix = PARTIAL_PREFIX if design == "partial" else WHOLE_PREFIX if design == "whole" else COMBINATION_PREDIX
     regenerate_prompt = f"{prefix}{f'{color} {texture}' if color and texture else color if color else texture} {prompt}"
-    image_id = generate_image(regenerate_prompt, image_id)
+    image_id = generate_image(regenerate_prompt, image_id, "_".join(image_id.split("_")[:-1]))
     return {
         "image_id": image_id,
         "prompt": prompt,
@@ -260,12 +265,14 @@ def regenerate_by_prompt(image_id: str, design: str, prompt: str, color: Optiona
 def numerical_partial(image: Image.Image,
                       color: Optional[str],
                       texture: Optional[str],
+                      color_column: Optional[str],
+                      texture_column: Optional[str],
                       numerical: str,
                       df: pd.DataFrame,
                       process_type: str,
                       image_pipe: List,
                       *args, **kwargs):
-    data = df[(color is None or df["color"] == color) & (texture is None or df["texture"] == texture)]
+    data = df[(color is None or df[color_column] == color) & (texture is None or df[texture_column] == texture)]
     column_name = numerical["column"]
     column_value = numerical["value"]
     if column_name == "number":
@@ -280,7 +287,7 @@ def numerical_partial(image: Image.Image,
             else:
                 image_pipe.append(image.resize((image_width, image_height)))
     if column_name == "opacity":
-        for idx, opacity in enumerate(df[column_value]):
+        for idx, opacity in enumerate(data[column_value]):
             if image_pipe:
                 image_pipe[idx] = set_alpha(image_pipe[idx],
                                             calculate_opacity(df[column_value].max(),
@@ -296,13 +303,15 @@ def numerical_partial(image: Image.Image,
 def numerical_whole(image: Image.Image,
                     color: Optional[str],
                     texture: Optional[str],
+                    color_column: Optional[str],
+                    texture_column: Optional[str],
                     size_of_whole: int,
                     numerical: str,
                     df: pd.DataFrame,
                     process_type: int,
                     image_pipe: List,
                     *args, **kwargs):
-    data = df[(color is None or df["color"] == color) & (texture is None or df["texture"] == texture)]
+    data = df[(color is None or df[color_column] == color) & (texture is None or df[texture_column] == texture)]
     column_name = numerical["column"]
     column_value = numerical["value"]
     if column_name == "number":
@@ -317,7 +326,7 @@ def numerical_whole(image: Image.Image,
             else:
                 image_pipe.append(image.resize((image_width, image_height)))
     if column_name == "opacity":
-        for idx, opacity in enumerate(df[column_value]):
+        for idx, opacity in enumerate(data[column_value]):
             if image_pipe:
                 image_pipe[idx] = set_alpha(image_pipe[idx],
                                             calculate_opacity(df[column_value].max(),
@@ -333,17 +342,27 @@ def numerical_whole(image: Image.Image,
 def numerical_combination(image: Image.Image,
                           color: Optional[str],
                           texture: Optional[str],
+                        color_column: Optional[str],
+                        texture_column: Optional[str],
                           df: pd.DataFrame,
                           process_type: int,
                           numerical: Dict,
                           sub_image: Image.Image,
                           image_pipe: List,
+                          numerical_number1: Dict,
                           *args, **kwargs):
-    data = df[(color is None or df["color"] == color) & (texture is None or df["texture"] == texture)]
+    try:
+        data = df[(color is None or df[color_column] == color) & (texture is None or df[texture_column] == texture)
+                & (sub_image.get("color") is None or df[sub_image["color"]] == sub_image["color_column"]) 
+                & (sub_image.get("texture") is None or df[sub_image["texture"]] == sub_image["texture_column"])]
+    except KeyError:
+        return
+    if data.empty: return
+    sub_image = get_image_by_id(sub_image["image_id"])
     column_name = numerical["column"]
     column_value = numerical["value"]
     if column_name == "number1" and process_type:
-        for sub_of_number, main_number in zip(data["number"], data[column_value]):  # TODO: wait fix
+        for sub_of_number, main_number in zip(data[numerical_number1["value"]], data[column_value]):  # TODO: wait fix
             main_image = scale_image(process_to_radiation(image, main_number)) if process_type \
                 else process_to_circle(image, main_number)
             image_pipe.append(process_to_combination(main_image, sub_image, sub_of_number))
@@ -351,7 +370,7 @@ def numerical_combination(image: Image.Image,
         for number in data[column_value]:
             image_pipe.append(process_to_combination(image, sub_image, number))
     if column_name == "size":
-        for idx, size in enumerate(df[column_value]):
+        for idx, size in enumerate(data[column_value]):
             if image_pipe:
                 image_pipe[idx] = image_pipe[idx].resize(
                     scale_size(df[column_value].max(), df[column_value].min(), size, image))
@@ -364,7 +383,7 @@ def numerical_combination(image: Image.Image,
                     )
                 )
     if column_name == "opacity":
-        for idx, opacity in enumerate(df[column_name]):
+        for idx, opacity in enumerate(data[column_name]):
             if image_pipe:
                 image_pipe[idx] = set_alpha(image_pipe[idx],
                                             calculate_opacity(df[column_name].max(),
@@ -401,20 +420,35 @@ def process_image_by_numerical(data: Dict):
     images = data.get("images")
     Numerical = data.get("Numerical")
     design = data.get("design")
-    sub_image = get_image_by_id(images[-1]) if design == "combination" else None
-    images = images[:-1] if design == "combination" else images
+    sub_images = [item for item in images if "sub_" in item["image_id"]] if design == "combination" else None
+    images = [item for item in images if "main_" in item["image_id"]] if design == "combination" else images
 
     result_images = []
     for item in images:
         image_id = item.get("image_id")
         color = item.get("color")
         texture = item.get("texture")
+        color_column = item.get("color_column")
+        texture_column = item.get("texture_column")
 
         image = get_image_by_id(image_id)
         image_pipe = []
-        for numerical in Numerical:
-            PROCESS[design](image=image, color=color, texture=texture, df=df, numerical=numerical,
-                            image_pipe=image_pipe, sub_image=sub_image, **data)
+
+        numericals = [numerical["column"] for numerical in Numerical]
+        numerical_number1 = Numerical[numericals.index("number1")] if "number1" in numericals else None
+
+        if sub_images:
+            for sub_image in sub_images:
+                for numerical in Numerical:
+                    PROCESS[design](image=image, color=color, texture=texture, df=df, color_column=color_column, 
+                                    texture_column=texture_column, numerical=numerical,
+                                    image_pipe=image_pipe, sub_image=sub_image, numerical_number1=numerical_number1, **data)
+
+        else:
+            for numerical in Numerical:
+                PROCESS[design](image=image, color=color, texture=texture, df=df, color_column=color_column, 
+                                texture_column=texture_column, numerical=numerical,
+                                image_pipe=image_pipe, sub_image=None, numerical_number1=numerical_number1, **data)
         result_images += image_pipe
     return [save_image(img, "res_") for img in result_images]
 

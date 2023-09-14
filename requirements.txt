@@ -1,5 +1,6 @@
 pandas
 flask
+flask[async]
 werkzeug
 gensim
 nltk

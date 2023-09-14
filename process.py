@@ -6,14 +6,13 @@ from PIL import Image
 def process_to_circle(image: Image.Image, number: int):
     petal_image = image.convert("RGBA")
 
-    # 获取花瓣的大小
     petal_width, petal_height = petal_image.size
 
     # 创建一个新的背景图像
-    _image = Image.new('RGBA', (500, 500))
+    _image = Image.new('RGBA', (int(petal_width * 1.5), int(petal_width * 1.5)), "black")
 
     # 计算旋转的中心点
-    circle_center_x, circle_center_y = 250, 250
+    circle_center_x, circle_center_y = int(petal_width*.75), int(petal_width*.75)
     circle_radius = 150
 
     # 计算花瓣的底部中心点
@@ -33,7 +32,7 @@ def process_to_circle(image: Image.Image, number: int):
     for i in range(number):
         degrees = i * (360 / number)
         place_petal_at_angle(degrees)
-    return _image
+    return _image.resize((500,500))
 
 
 def process_to_radiation(image: Image.Image, number: int):

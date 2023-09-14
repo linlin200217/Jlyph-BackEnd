@@ -150,7 +150,7 @@ def image_process():
     {
         design: "partial" | "whole" | "combination",
         images: [
-            {image_id: str, color: str, texture: str, shape?: str}
+            {image_id: str, color: str, color_colunm: str, texture: str,texture_colunm: str, shape?: str}
         ],
         Numerical: [
             {
