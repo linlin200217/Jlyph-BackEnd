@@ -33,9 +33,9 @@ TEXTURE = ["plastic", "iron", "glass", "paper", "fabric",
 PARTIAL_PREFIX = "A "
 WHOLE_PREFIX = "A "
 COMBINATION_PREDIX = "A "
-MASK_CIRCLE = Image.open("src/Mask_Circle.png")
-MASK_VERRECTANGLE = Image.open("src/Mask_VerRectangle.png")
-MASK_SQUARE = Image.open("src/Mask_Square.png")
+MASK_CIRCLE = Image.open("images/Mask_Circle.png")
+MASK_VERRECTANGLE = Image.open("images/Mask_VerRectangle.png")
+MASK_SQUARE = Image.open("images/Mask_Square.png")
 MASK = [MASK_CIRCLE, MASK_VERRECTANGLE, MASK_SQUARE]
 DEVICE = "cuda"
 
