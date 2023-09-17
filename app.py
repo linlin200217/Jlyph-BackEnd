@@ -201,15 +201,25 @@ def placement_image():
         images: list[str],
         method: "grid" | "struct" | "geo",
         data_title: str,
-        border_thickness: int,
-        color_fill: str,
-        dashed: bool,
-        line_width: int,
-        line_color: str,
-        draw_lines: bool,
-        canvas_color: str,
-        background_type: str, # Choose from ['transparent', 'color']
-        background_color: str,
+        border_thickness: int,    # grid
+        color_fill: str,          # grid
+        dashed: bool,             # grid
+        draw_lines: bool,         # grid
+        column1: str,             # struct, lat of geo
+        column2: str,             # struct, lon of geo
+        canvas_color: str,        # struct
+        text_size: int,           # struct
+        text_color: str,          # struct
+        grid_color: str,          # struct
+        show_grid: bool,           # struct
+        fill_color: str,          # geo
+        continent_color: str,     # geo
+        countries_color: str,     # geo
+        linestyle: str,           # geo
+        coastlines: str,          # geo
+        lake_color: str,          # geo
+        background_type: str of ['transparent', 'color']  # grid, struct
+        background_color: str,     # struct, grid
     }
     return
     {

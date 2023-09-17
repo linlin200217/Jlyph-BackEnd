@@ -532,7 +532,7 @@ def make_grid(
         color_fill: str,
         dashed: bool,
         draw_lines: bool,
-        background_mode: str,
+        background_type: str,
         background_color: str,
         *args, **kwargs) -> str:
     def center_crop(image, target_width, target_height):
@@ -553,9 +553,9 @@ def make_grid(
     output_width = N * 400
     output_height = N * 400
 
-    if background_mode == "transparent":
+    if background_type == "transparent":
         output_image = Image.new('RGBA', (output_width, output_height), (255, 255, 255, 0))
-    elif background_mode == "color":
+    elif background_type == "color":
         output_image = Image.new('RGBA', (output_width, output_height), background_color)
 
     # 将每张花的图片粘贴到网格的背景图像上
@@ -647,7 +647,7 @@ def make_struct(
     # 保存图形
     plt.tight_layout()
     filename = f'placement_{int(datetime.datetime.now().timestamp())}'
-    plt.savefig(filename + ".png", dpi=500, bbox_inches='tight', pad_inches=0,
+    plt.savefig(os.path.join(IMAGE_RESOURCE_PATH,filename + ".png"), dpi=500, bbox_inches='tight', pad_inches=0,
                 transparent=True if background_type == 'transparent' else False)
     return filename
 
@@ -687,13 +687,13 @@ def make_geo(
 
     # 在地图上添加城市的图片
     for lat, lon, image in zip(lats, lons, images):
-        x, y = m(lat, lon)
+        x, y = m(lon, lat)
         size_factor = 0.1  # 使图片大小与年份相关
         img = OffsetImage(image, zoom=size_factor)
         ax.add_artist(AnnotationBbox(img, (x, y), frameon=False))
 
     filename = f'placement_{int(datetime.datetime.now().timestamp())}'
-    plt.savefig(filename + ".png", dpi=500)
+    plt.savefig(os.path.join(IMAGE_RESOURCE_PATH,filename + ".png"), dpi=500)
     return filename
 
 
