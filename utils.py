@@ -51,7 +51,6 @@ PIPE_SDCC = StableDiffusionControlNetPipeline.from_pretrained("runwayml/stable-d
                                                                   torch_dtype=torch.float16),
                                                               torch_dtype=torch.float16).to(DEVICE)
 
-
 nltk.download('punkt')
 nltk.download('averaged_perceptron_tagger')
 nltk.download('wordnet')
@@ -59,7 +58,7 @@ nltk.download('wordnet')
 
 def save_image(img: Image.Image, prefix: Optional[str], type: str = "png") -> str:
     prefix = prefix or "main_"
-    image_id = int(datetime.datetime.now().timestamp()+random.randrange(1,10000))
+    image_id = int(datetime.datetime.now().timestamp() + random.randrange(1, 10000))
     filename = f"{prefix}{image_id}.{type}"
     img.save(os.path.join(IMAGE_RESOURCE_PATH,
                           filename), format=type)
@@ -129,7 +128,8 @@ def make_glyph(data: Dict) -> List[Dict[str, str]]:
     return image_id
 
 
-def make_partial(prompt1: str, guide1: int, img_prefix: Optional[str] = "partial_", *args, **kwargs) -> List[Dict[str, str]]:
+def make_partial(prompt1: str, guide1: int, img_prefix: Optional[str] = "partial_", *args, **kwargs) -> List[
+    Dict[str, str]]:
     # guide: [0-2]
     prompt = PARTIAL_PREFIX + prompt1
     out = PIPE_SD(
@@ -144,7 +144,8 @@ def make_whole(prompt1: Union[str, List], guide1: int, img_prefix: Optional[str]
         return [
             {"prompt": prompt,
              "image_id": save_image(PIPE_SD(prompt=WHOLE_PREFIX + prompt,
-                                            image=MASK[int(guide1)], strength=0.9, guidance_scale=20).images[0], img_prefix)}
+                                            image=MASK[int(guide1)], strength=0.9, guidance_scale=20).images[0],
+                                    img_prefix)}
             for prompt in prompt1
         ]
     prompt = WHOLE_PREFIX + prompt1
@@ -173,7 +174,8 @@ def generate_glyph(data: Dict) -> List[str]:
 
 
 def make_prompt_by_categorical(prefix: str, prompt: str, categorical: List, df: Optional[pd.DataFrame] = None,
-                               _color: Optional[List[str]] = None, _texture: Optional[List[str]] = None, _shape: Optional[str]=None,
+                               _color: Optional[List[str]] = None, _texture: Optional[List[str]] = None,
+                               _shape: Optional[str] = None,
                                _num: Optional[int] = None) -> List[Tuple]:
     # return: ("prompt", color, texture, shape?)
     if len(categorical) == 1:
@@ -186,7 +188,7 @@ def make_prompt_by_categorical(prefix: str, prompt: str, categorical: List, df: 
             return [(f"{prefix}{texture} {prompt}", None, texture) for texture in
                     random.sample(_texture or TEXTURE, num)]
     elif len(categorical) == 2:
-        _tmp = {"color": {}, "texture": {}, "str":[], "prompt": []}
+        _tmp = {"color": {}, "texture": {}, "str": [], "prompt": []}
         num = _num or len({f"{column1}{column2}" for column1, column2 in zip(
             df[categorical[0]["column"]], df[categorical[1]["column"]])})
         _colors = random.sample(_color or COLOR, num)
@@ -197,23 +199,26 @@ def make_prompt_by_categorical(prefix: str, prompt: str, categorical: List, df: 
                 _tmp["color"][color] = _tmp["color"].get(color) or _colors.pop()
                 _tmp["texture"][texture] = _tmp["texture"].get(texture) or _textures.pop()
                 _tmp["str"].append(s)
-                _tmp["prompt"].append((f"A {_tmp['color'][color]} {_tmp['texture'][texture]} car", _tmp['color'][color], _tmp['texture'][texture]))
+                _tmp["prompt"].append((f"A {_tmp['color'][color]} {_tmp['texture'][texture]} car", _tmp['color'][color],
+                                       _tmp['texture'][texture]))
 
         return _tmp["prompt"]
     elif len(categorical) == 3:
-        _tmp = {"color": {}, "texture": {}, "shape": {},"str":[], "prompt": []}
+        _tmp = {"color": {}, "texture": {}, "shape": {}, "str": [], "prompt": []}
         num = _num or len({f"{column1}{column2}{column3}" for column1, column2, column3 in zip(
             df[categorical[0]["column"]], df[categorical[1]["column"]], df[categorical[2]["column"]])})
         _colors = random.sample(_color or COLOR, num)
         _textures = random.sample(_texture or TEXTURE, num)
-        for color, texture, shape in zip(df[categorical[0]["column"]], df[categorical[1]["column"]], df[categorical[2]["column"]]):
-            if shape==_shape:
+        for color, texture, shape in zip(df[categorical[0]["column"]], df[categorical[1]["column"]],
+                                         df[categorical[2]["column"]]):
+            if shape == _shape:
                 s = f"{color}{texture}{shape}"
                 if s not in _tmp["str"]:
                     _tmp["color"][color] = _tmp["color"].get(color) or _colors.pop()
                     _tmp["texture"][texture] = _tmp["texture"].get(texture) or _textures.pop()
                     _tmp["str"].append(s)
-                    _tmp["prompt"].append((f"A {_tmp['color'][color]} {_tmp['texture'][texture]} car", _tmp['color'][color], _tmp['texture'][texture]), _shape)
+                    _tmp["prompt"].append((f"A {_tmp['color'][color]} {_tmp['texture'][texture]} car",
+                                           _tmp['color'][color], _tmp['texture'][texture], _shape))
 
         return _tmp["prompt"]
 
@@ -225,7 +230,8 @@ def generate_partial(prompt1: str, Categorical1: List, Numerical: List, df: pd.D
              "image_id": generate_image(prompt, image_id, image_prefix)} for prompt, color, texture in prompts]
 
 
-def generate_whole(prompt1: Union[str, List], Categorical1: List, Numerical: List, df: pd.DataFrame, image_id: List[str],
+def generate_whole(prompt1: Union[str, List], Categorical1: List, Numerical: List, df: pd.DataFrame,
+                   image_id: List[str],
                    image_prefix: Optional[str] = None, *args, **kwargs):
     if isinstance(prompt1, list):
         _image_id = []
@@ -233,17 +239,20 @@ def generate_whole(prompt1: Union[str, List], Categorical1: List, Numerical: Lis
         _textures = []
         for info in image_id:
             # info: {image_id:xx, prompt:xx, shape: xx}
-            prompts = make_prompt_by_categorical(WHOLE_PREFIX, info["prompt"], Categorical1, df,list(set(COLOR)-set(_colors)),
-                                                 list(set(TEXTURE)-set(_textures)),info["shape"])
-            _textures += [t for _,_,t,_ in prompts]
-            _colors += [c for _,c,_,_ in prompts]
+            prompts = make_prompt_by_categorical(WHOLE_PREFIX, info["prompt"], Categorical1, df,
+                                                 list(set(COLOR) - set(_colors)),
+                                                 list(set(TEXTURE) - set(_textures)), info["shape"])
+            _textures += [t for _, _, t, _ in prompts]
+            _colors += [c for _, c, _, _ in prompts]
             _image_id += [{"prompt": prompt, "color": color, "texture": texture, "shape": shape,
-                           "image_id": generate_image(prompt, info["image_id"], image_prefix)} for prompt, color, texture, shape in
+                           "image_id": generate_image(prompt, info["image_id"], image_prefix)} for
+                          prompt, color, texture, shape in
                           prompts]
         return _image_id
     prompts = make_prompt_by_categorical(WHOLE_PREFIX, prompt1, Categorical1, df, _shape=image_id["shape"])
     return [{"prompt": prompt1, "color": color, "texture": texture,
-             "image_id": generate_image(prompt, image_id["image_id"], image_prefix)} for prompt, color, texture in prompts]
+             "image_id": generate_image(prompt, image_id["image_id"], image_prefix)} for prompt, color, texture in
+            prompts]
 
 
 def generate_combination(image_id: List, prompt1: Union[str, List], prompt2: str, Categorical1: List,
@@ -255,7 +264,7 @@ def generate_combination(image_id: List, prompt1: Union[str, List], prompt2: str
     return main_images + sub_image
 
 
-def generate_image(prompt: str, image_id: str, image_prefix: None = None):
+def generate_image(prompt: str, image_id: str, image_prefix: Optional[str] = None):
     img = np.array(get_image_by_id(image_id))
     low_threshold = 100
     high_threshold = 200
@@ -373,8 +382,8 @@ def numerical_whole(image: Image.Image,
 def numerical_combination(image: Image.Image,
                           color: Optional[str],
                           texture: Optional[str],
-                        color_column: Optional[str],
-                        texture_column: Optional[str],
+                          color_column: Optional[str],
+                          texture_column: Optional[str],
                           df: pd.DataFrame,
                           process_type: int,
                           numerical: Dict,
@@ -384,8 +393,8 @@ def numerical_combination(image: Image.Image,
                           *args, **kwargs):
     try:
         data = df[(color is None or df[color_column] == color) & (texture is None or df[texture_column] == texture)
-                & (sub_image.get("color") is None or df[sub_image["color"]] == sub_image["color_column"]) 
-                & (sub_image.get("texture") is None or df[sub_image["texture"]] == sub_image["texture_column"])]
+                  & (sub_image.get("color") is None or df[sub_image["color"]] == sub_image["color_column"])
+                  & (sub_image.get("texture") is None or df[sub_image["texture"]] == sub_image["texture_column"])]
     except KeyError:
         return
     if data.empty: return
@@ -442,7 +451,7 @@ def scale_size(max_of_data, min_of_data, size, image) -> Tuple[int, int]:
 
 
 def calculate_opacity(max_of_opacity, min_of_opacity, opacity):
-    return 25 + ((opacity-min_of_opacity)/(max_of_opacity-min_of_opacity)) * (100-25)
+    return 25 + ((opacity - min_of_opacity) / (max_of_opacity - min_of_opacity)) * (100 - 25)
 
 
 def process_image_by_numerical(data: Dict):
@@ -471,13 +480,14 @@ def process_image_by_numerical(data: Dict):
         if sub_images:
             for sub_image in sub_images:
                 for numerical in Numerical:
-                    PROCESS[design](image=image, color=color, texture=texture, df=df, color_column=color_column, 
+                    PROCESS[design](image=image, color=color, texture=texture, df=df, color_column=color_column,
                                     texture_column=texture_column, numerical=numerical,
-                                    image_pipe=image_pipe, sub_image=sub_image, numerical_number1=numerical_number1, **data)
+                                    image_pipe=image_pipe, sub_image=sub_image, numerical_number1=numerical_number1,
+                                    **data)
 
         else:
             for numerical in Numerical:
-                PROCESS[design](image=image, color=color, texture=texture, df=df, color_column=color_column, 
+                PROCESS[design](image=image, color=color, texture=texture, df=df, color_column=color_column,
                                 texture_column=texture_column, numerical=numerical,
                                 image_pipe=image_pipe, sub_image=None, numerical_number1=numerical_number1, **data)
         result_images += image_pipe
@@ -584,10 +594,9 @@ def make_grid(
     output_width = N * 400
     output_height = N * 400
 
-    if background_type == "transparent":
-        output_image = Image.new('RGBA', (output_width, output_height), (255, 255, 255, 0))
-    elif background_type == "color":
-        output_image = Image.new('RGBA', (output_width, output_height), background_color)
+    output_image = Image.new('RGBA', (output_width, output_height), (255, 255, 255, 0)) \
+        if background_type == "transparent" else \
+        Image.new('RGBA', (output_width, output_height), background_color)
 
     # 将每张花的图片粘贴到网格的背景图像上
     for idx, flower_image in enumerate(flower_images):
@@ -678,7 +687,7 @@ def make_struct(
     # 保存图形
     plt.tight_layout()
     filename = f'placement_{int(datetime.datetime.now().timestamp())}'
-    plt.savefig(os.path.join(IMAGE_RESOURCE_PATH,filename + ".png"), dpi=500, bbox_inches='tight', pad_inches=0,
+    plt.savefig(os.path.join(IMAGE_RESOURCE_PATH, filename + ".png"), dpi=500, bbox_inches='tight', pad_inches=0,
                 transparent=True if background_type == 'transparent' else False)
     return filename
 
@@ -724,7 +733,7 @@ def make_geo(
         ax.add_artist(AnnotationBbox(img, (x, y), frameon=False))
 
     filename = f'placement_{int(datetime.datetime.now().timestamp())}'
-    plt.savefig(os.path.join(IMAGE_RESOURCE_PATH,filename + ".png"), dpi=500)
+    plt.savefig(os.path.join(IMAGE_RESOURCE_PATH, filename + ".png"), dpi=500)
     return filename
 
 
