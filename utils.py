@@ -241,9 +241,9 @@ def generate_whole(prompt1: Union[str, List], Categorical1: List, Numerical: Lis
                            "image_id": generate_image(prompt, info["image_id"], image_prefix)} for prompt, color, texture, shape in
                           prompts]
         return _image_id
-    prompts = make_prompt_by_categorical(WHOLE_PREFIX, prompt1, Categorical1, df)
+    prompts = make_prompt_by_categorical(WHOLE_PREFIX, prompt1, Categorical1, df, _shape=image_id["shape"])
     return [{"prompt": prompt1, "color": color, "texture": texture,
-             "image_id": generate_image(prompt, image_id, image_prefix)} for prompt, color, texture in prompts]
+             "image_id": generate_image(prompt, image_id["image_id"], image_prefix)} for prompt, color, texture in prompts]
 
 
 def generate_combination(image_id: List, prompt1: Union[str, List], prompt2: str, Categorical1: List,
