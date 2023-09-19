@@ -185,10 +185,19 @@ def make_prompt_by_categorical(prefix: str, prompt: str, categorical: List, df: 
             return [(f"{prefix}{texture} {prompt}", None, texture) for texture in
                     random.sample(_texture or TEXTURE, num)]
     else:
+        _tmp = {"color":[], "texture": [], "str":[]}
         num = _num or len({f"{column1}{column2}" for column1, column2 in zip(
-            df[categorical[0][categorical[0]["column"]]], df[categorical[1][categorical[1]["column"]]])})
-        return [(f"{prefix}{color} {texture} {prompt}", color, texture) for color, texture in
-                zip(random.sample(_color or COLOR, num), random.sample(_texture or TEXTURE, num))]
+            df[categorical[0]["column"]], df[categorical[1]["column"]])})
+        _colors = random.sample(_color or COLOR, num)
+        _textures = random.sample(_texture or TEXTURE, num)
+        for color, texture in zip(df[categorical[0]["column"]], df[categorical[1]["column"]]):
+            s = f"{color}{texture}"
+            if s not in _tmp["str"]:
+                _tmp["color"].append(_colors.pop())
+                _tmp["texture"].append(_textures.pop())
+                _tmp["str"].append(s)
+
+        return [(f"{prefix}{color} {texture} {prompt}", color, texture) for color, texture in zip(_tmp["color"], _tmp["color"])]
 
 
 def generate_partial(prompt1: str, Categorical1: List, Numerical: List, df: pd.DataFrame, image_id: str,
