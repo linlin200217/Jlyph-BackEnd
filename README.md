@@ -19,6 +19,7 @@ Install packages in the environment, and all package files are stored under env
 ```bash
 source env/bin/activate
 python3.10 -m pip install -U -r requirements.txt
+python3.10 -m pip install accelerate # faster and less memory-intense model loading
 ```
 
 update the requirements before exit
