@@ -59,8 +59,9 @@ async def generate():
         design: "partial" | "whole" | "combination",
         Categorical1: 
             [
-                {column: "Flower Country", value: color | texture},
-                {column: "Flower Type", value: color | texture},
+                {column: "Flower Country", value: "color"},
+                {column: "Flower Type", value: "texture"},
+                {column: "Any", value: "shape"},
             ],
         Categorical2:
             [
@@ -69,11 +70,15 @@ async def generate():
             ], | null,
         Numerical: ["number","size","opacity"],  # todo
         Ordinal: ["size","opacity"],
-        prompt1: "",
+        prompt1: [subprompt1, subprompt2...] | prompt,
         prompt2: "" | null,
         guide1:  0 | 1 | 2,
         guide2:  0 | 1 | 2 | null,
-        image_id: [str],
+        image_id: [{
+            "image_id": str,
+            "prompt": str,
+            "shape"?: str
+        }...] | str,
         data_title: str
     }
     return:
@@ -244,4 +249,4 @@ def get_image(image_id):
 
 
 if __name__ == "__main__":
-    app.run(port=8000)
+    app.run(port=8000, debug=True)

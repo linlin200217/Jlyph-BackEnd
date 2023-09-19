@@ -173,8 +173,9 @@ def generate_glyph(data: Dict) -> List[str]:
 
 
 def make_prompt_by_categorical(prefix: str, prompt: str, categorical: List, df: Optional[pd.DataFrame] = None,
-                               _color: Optional[List[str]] = None, _texture: Optional[List[str]] = None,
+                               _color: Optional[List[str]] = None, _texture: Optional[List[str]] = None, _shape: Optional[str]=None,
                                _num: Optional[int] = None) -> List[Tuple]:
+    # return: ("prompt", color, texture, shape?)
     if len(categorical) == 1:
         item = categorical[0]
         value = item["value"]
@@ -184,8 +185,8 @@ def make_prompt_by_categorical(prefix: str, prompt: str, categorical: List, df: 
         if value == "texture":
             return [(f"{prefix}{texture} {prompt}", None, texture) for texture in
                     random.sample(_texture or TEXTURE, num)]
-    else:
-        _tmp = {"color":[], "texture": [], "str":[]}
+    elif len(categorical) == 2:
+        _tmp = {"color": {}, "texture": {}, "str":[], "prompt": []}
         num = _num or len({f"{column1}{column2}" for column1, column2 in zip(
             df[categorical[0]["column"]], df[categorical[1]["column"]])})
         _colors = random.sample(_color or COLOR, num)
@@ -193,33 +194,54 @@ def make_prompt_by_categorical(prefix: str, prompt: str, categorical: List, df: 
         for color, texture in zip(df[categorical[0]["column"]], df[categorical[1]["column"]]):
             s = f"{color}{texture}"
             if s not in _tmp["str"]:
-                _tmp["color"].append(_colors.pop())
-                _tmp["texture"].append(_textures.pop())
+                _tmp["color"][color] = _tmp["color"].get(color) or _colors.pop()
+                _tmp["texture"][texture] = _tmp["texture"].get(texture) or _textures.pop()
                 _tmp["str"].append(s)
+                _tmp["prompt"].append((f"A {_tmp['color'][color]} {_tmp['texture'][texture]} car", _tmp['color'][color], _tmp['texture'][texture]))
 
-        return [(f"{prefix}{color} {texture} {prompt}", color, texture) for color, texture in zip(_tmp["color"], _tmp["color"])]
+        return _tmp["prompt"]
+    elif len(categorical) == 3:
+        _tmp = {"color": {}, "texture": {}, "shape": {},"str":[], "prompt": []}
+        num = _num or len({f"{column1}{column2}{column3}" for column1, column2, column3 in zip(
+            df[categorical[0]["column"]], df[categorical[1]["column"]], df[categorical[2]["column"]])})
+        _colors = random.sample(_color or COLOR, num)
+        _textures = random.sample(_texture or TEXTURE, num)
+        for color, texture, shape in zip(df[categorical[0]["column"]], df[categorical[1]["column"]], df[categorical[2]["column"]]):
+            if shape==_shape:
+                s = f"{color}{texture}{shape}"
+                if s not in _tmp["str"]:
+                    _tmp["color"][color] = _tmp["color"].get(color) or _colors.pop()
+                    _tmp["texture"][texture] = _tmp["texture"].get(texture) or _textures.pop()
+                    _tmp["str"].append(s)
+                    _tmp["prompt"].append((f"A {_tmp['color'][color]} {_tmp['texture'][texture]} car", _tmp['color'][color], _tmp['texture'][texture]), _shape)
+
+        return _tmp["prompt"]
 
 
 def generate_partial(prompt1: str, Categorical1: List, Numerical: List, df: pd.DataFrame, image_id: str,
                      image_prefix: Optional[str] = None, *args, **kwargs):
-    prompts = make_prompt_by_categorical(
-        PARTIAL_PREFIX, prompt1, Categorical1, df)
+    prompts = make_prompt_by_categorical(PARTIAL_PREFIX, prompt1, Categorical1, df)
     return [{"prompt": prompt1, "color": color, "texture": texture,
              "image_id": generate_image(prompt, image_id, image_prefix)} for prompt, color, texture in prompts]
 
 
-def generate_whole(prompt1: Union[str, List], Categorical1: List, Numerical: List, df: pd.DataFrame, image_id: str,
+def generate_whole(prompt1: Union[str, List], Categorical1: List, Numerical: List, df: pd.DataFrame, image_id: List[str],
                    image_prefix: Optional[str] = None, *args, **kwargs):
     if isinstance(prompt1, list):
         _image_id = []
-        for prompt in prompt1:
-            prompts = make_prompt_by_categorical(WHOLE_PREFIX, prompt, Categorical1, df)
-            _image_id += [{"prompt": prompt, "color": color, "texture": texture,
-                           "image_id": generate_image(prompt, image_id, image_prefix)} for prompt, color, texture in
+        _colors = []
+        _textures = []
+        for info in image_id:
+            # info: {image_id:xx, prompt:xx, shape: xx}
+            prompts = make_prompt_by_categorical(WHOLE_PREFIX, info["prompt"], Categorical1, df,list(set(COLOR)-set(_colors)),
+                                                 list(set(TEXTURE)-set(_textures)),info["shape"])
+            _textures += [t for _,_,t,_ in prompts]
+            _colors += [c for _,c,_,_ in prompts]
+            _image_id += [{"prompt": prompt, "color": color, "texture": texture, "shape": shape,
+                           "image_id": generate_image(prompt, info["image_id"], image_prefix)} for prompt, color, texture, shape in
                           prompts]
         return _image_id
-    prompts = make_prompt_by_categorical(
-        WHOLE_PREFIX, prompt1, Categorical1, df)
+    prompts = make_prompt_by_categorical(WHOLE_PREFIX, prompt1, Categorical1, df)
     return [{"prompt": prompt1, "color": color, "texture": texture,
              "image_id": generate_image(prompt, image_id, image_prefix)} for prompt, color, texture in prompts]
 
@@ -229,7 +251,7 @@ def generate_combination(image_id: List, prompt1: Union[str, List], prompt2: str
     main_images = [generate_whole(
         prompt1, Categorical1, Numerical, df, id_, "main_generated_") for id_ in image_id[:-1]]
     sub_image = generate_partial(
-        prompt2, Categorical2, Numerical, df, image_id[-1], "sub_generated_")
+        prompt2, Categorical2, Numerical, df, image_id[-1]["image_id"], "sub_generated_")
     return main_images + sub_image
 
 
