@@ -186,7 +186,7 @@ def make_prompt_by_categorical(prefix: str, prompt: str, categorical: List, df: 
                     random.sample(_texture or TEXTURE, num)]
     else:
         num = _num or len({f"{column1}{column2}" for column1, column2 in zip(
-            df[categorical[0][item["column"]]], df[categorical[1][item["column"]]])})
+            df[categorical[0][categorical[0]["column"]]], df[categorical[1][categorical[1]["column"]]])})
         return [(f"{prefix}{color} {texture} {prompt}", color, texture) for color, texture in
                 zip(random.sample(_color or COLOR, num), random.sample(_texture or TEXTURE, num))]
 
