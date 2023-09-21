@@ -459,10 +459,11 @@ PROCESS = {
 
 
 def scale_size(max_of_data, min_of_data, size, image) -> Tuple[int, int]:
-    loss = max_of_data - min_of_data
-    image_width = image.size[0] + (image.size[0] / loss) * (size - loss)
-    image_height = image.size[1] + (image.size[1] / loss) * (size - loss)
-    return int(image_width), int(image_height)
+    scaling = 0.5 + 0.5 * (size - min_of_data) / (max_of_data - min_of_data)
+    
+    image_width = int(image.size[0] * scaling)
+    image_height = int(image.size[1] * scaling)
+    return image_width, image_height
 
 
 def calculate_opacity(max_of_opacity, min_of_opacity, opacity):
