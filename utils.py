@@ -684,6 +684,19 @@ def make_struct(
     ax.set_xlabel(column1, fontsize=text_size, color=text_color, weight='bold')
     ax.set_ylabel(column2, fontsize=text_size, color=text_color, weight='bold')
     ax.scatter(df[column1], df[column2], alpha=0)  # 透明的散点，只为确定轴的范围
+    # Calculate the new range for x-axis and y-axis
+    x_range = df[column1].max() - df[column1].min()
+    y_range = df[column2].max() - df[column2].min()
+
+    # Calculate the new limits by adding/subtracting 10% of the range
+    x_min = df[column1].min() - 0.1 * x_range
+    x_max = df[column1].max() + 0.1 * x_range
+    y_min = df[column2].min() - 0.1 * y_range
+    y_max = df[column2].max() + 0.1 * y_range
+
+    # Set the new x and y axis limits
+    ax.set_xlim(x_min, x_max)
+    ax.set_ylim(y_min, y_max)
 
     # 设置轴的颜色
     ax.spines['bottom'].set_color(text_color)
