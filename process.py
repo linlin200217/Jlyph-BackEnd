@@ -9,7 +9,7 @@ def process_to_circle(image: Image.Image, number: int):
     petal_width, petal_height = petal_image.size
 
     # 创建一个新的背景图像
-    _image = Image.new('RGBA', (int(petal_width * 1.5), int(petal_width * 1.5)), "black")
+    _image = Image.new('RGBA', (int(petal_width * 1.5), int(petal_width * 1.5)))
 
     # 计算旋转的中心点
     circle_center_x, circle_center_y = int(petal_width*.75), int(petal_width*.75)
