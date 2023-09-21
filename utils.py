@@ -178,30 +178,45 @@ def make_prompt_by_categorical(prefix: str, prompt: str, categorical: List, df: 
                                _shape: Optional[str] = None,
                                _num: Optional[int] = None) -> List[Tuple]:
     # return: ("prompt", color, texture, shape?)
+    categorical_pos = ["color", "texture", "shape"]
+    color_categorical = None
+    texture_categorical = None
+    shape_categorical = None
+    for _categorical in categorical:
+        if _categorical["value"] == "color": color_categorical = _categorical
+        if _categorical["value"] == "texture": texture_categorical = _categorical
+        if _categorical["value"] == "shape": shape_categorical = _categorical
     if len(categorical) == 1:
         item = categorical[0]
-        value = item["value"]
         num = _num or len(df[item["column"]].drop_duplicates())
-        if value == "color":
-            return [(f"{prefix}{color} {prompt}", color, None) for color in random.sample(_color or COLOR, num)]
-        if value == "texture":
-            return [(f"{prefix}{texture} {prompt}", None, texture) for texture in
+        if color_categorical:
+            return [(f"{prefix}{color} {prompt}", color, None, None) for color in random.sample(_color or COLOR, num)]
+        if texture_categorical:
+            return [(f"{prefix}{texture} {prompt}", None, texture, None) for texture in
                     random.sample(_texture or TEXTURE, num)]
+        if shape_categorical:
+            pass
     elif len(categorical) == 2:
-        _tmp = {"color": {}, "texture": {}, "str": [], "prompt": []}
+        _tmp = {"c1": {}, "c2": {}, "str": [], "prompt": []}
         num = _num or len({f"{column1}{column2}" for column1, column2 in zip(
             df[categorical[0]["column"]], df[categorical[1]["column"]])})
         _colors = random.sample(_color or COLOR, num)
         _textures = random.sample(_texture or TEXTURE, num)
-        for color, texture in zip(df[categorical[0]["column"]], df[categorical[1]["column"]]):
-            s = f"{color}{texture}"
-            if s not in _tmp["str"]:
-                _tmp["color"][color] = _tmp["color"].get(color) or _colors.pop()
-                _tmp["texture"][texture] = _tmp["texture"].get(texture) or _textures.pop()
-                _tmp["str"].append(s)
-                _tmp["prompt"].append((f"A {_tmp['color'][color]} {_tmp['texture'][texture]} car", _tmp['color'][color],
-                                       _tmp['texture'][texture]))
+        for c1, c2 in zip(df[categorical[0]["column"]], df[categorical[1]["column"]]):
+            if shape_categorical is None or c2 == _shape:
+                s = f"{c1}{c2}"
+                if s not in _tmp["str"]:
+                    _tmp["c1"][c1] = _tmp["c1"].get(c1) or _colors.pop()
 
+                    _tmp["c2"][c2] = _tmp["c2"].get(c2) or _textures.pop()\
+                        if shape_categorical is None else \
+                        c2
+                    _tmp["str"].append(s)
+                    _prompt = [f"A {_tmp['c1'][c1]}"+
+                               (f" {_tmp['c2'][c2]} {prompt}" if shape_categorical is None else ""), None, None, None]
+                    _prompt[categorical_pos.index(categorical[0]["value"]) + 1] = _tmp['c1'][c1]
+                    _prompt[categorical_pos.index(categorical[1]["value"]) + 1] = _tmp['c2'][c2]
+                    _tmp["prompt"].append(_prompt)
         return _tmp["prompt"]
     elif len(categorical) == 3:
         _tmp = {"color": {}, "texture": {}, "shape": {}, "str": [], "prompt": []}
@@ -217,7 +232,7 @@ def make_prompt_by_categorical(prefix: str, prompt: str, categorical: List, df: 
                     _tmp["color"][color] = _tmp["color"].get(color) or _colors.pop()
                     _tmp["texture"][texture] = _tmp["texture"].get(texture) or _textures.pop()
                     _tmp["str"].append(s)
-                    _tmp["prompt"].append((f"A {_tmp['color'][color]} {_tmp['texture'][texture]} car",
+                    _tmp["prompt"].append((f"A {_tmp['color'][color]} {_tmp['texture'][texture]} {prompt}",
                                            _tmp['color'][color], _tmp['texture'][texture], _shape))
 
         return _tmp["prompt"]
@@ -227,7 +242,7 @@ def generate_partial(prompt1: str, Categorical1: List, Numerical: List, df: pd.D
                      image_prefix: Optional[str] = None, *args, **kwargs):
     prompts = make_prompt_by_categorical(PARTIAL_PREFIX, prompt1, Categorical1, df)
     return [{"prompt": prompt1, "color": color, "texture": texture,
-             "image_id": generate_image(prompt, image_id, image_prefix)} for prompt, color, texture in prompts]
+             "image_id": generate_image(prompt, image_id, image_prefix)} for prompt, color, texture, _ in prompts]
 
 
 def generate_whole(prompt1: Union[str, List], Categorical1: List, Numerical: List, df: pd.DataFrame,

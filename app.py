@@ -83,7 +83,7 @@ async def generate():
     }
     return:
     {
-            "status": "success", 
+            "status": "success",
             "image": [
                 {prompt: promt1 | subprompt1, texture?: str, color?: str, image_id: <image_id of str>},
                 {prompt: promt2 | subprompt2, texture?: str, color?: str, image_id: <image_id of str>},
@@ -179,7 +179,7 @@ def image_process():
         status: str,
         images: list[str]
     }
-    
+
     局部：
     categorical：color，texture
     Numerical：Size，number，opacity
@@ -192,7 +192,7 @@ def image_process():
     categorical：color_main, color_auxiliary, texture_main, texture_auxiliary, shape_main
     Numerical: Number_main, Number_auxiliary, Size, Opacity
     注：只有在没有选择shape_main的前提下才可以选择Number_main，换句话说，如果选择了shape_main就没有number_main的选择。如果选择了number_main，就没有shape_main的选择。
-    
+
     """
     return jsonify({"status": "success", "images": process_image_by_numerical(request.json)})
 
@@ -243,9 +243,6 @@ def get_image(image_id):
         image
     """
     return send_file(os.path.join(IMAGE_RESOURCE_PATH, image_id + ".png"))
-
-
-
 
 
 if __name__ == "__main__":
