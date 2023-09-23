@@ -142,7 +142,7 @@ def process_to_combination(main_image, sub_image, sub_of_num, circle_center=(250
     new_width = int(width * 0.2)
     new_height = int(height * 0.2)
     sub_image = sub_image.resize((new_width, new_height))
-    new_image = main_image.copy()
+    new_image = main_image.copy().resize((500, 500))
 
     angle_step = 360 / sub_of_num
     for i in range(sub_of_num):

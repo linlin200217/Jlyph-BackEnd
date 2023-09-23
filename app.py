@@ -68,7 +68,6 @@ async def generate():
                 {column: column1, value: color | texture},
                 {column: column2, value: color | texture}
             ], | null,
-        Numerical: ["number","size","opacity"],  # todo
         Ordinal: ["size","opacity"],
         prompt1: [subprompt1, subprompt2...] | prompt,
         prompt2: "" | null,
@@ -78,7 +77,7 @@ async def generate():
             "image_id": str,
             "prompt": str,
             "shape"?: str
-        }...] | str,
+        }...] | str, # whole or combination | partial
         data_title: str
     }
     return:
@@ -159,6 +158,10 @@ def image_process():
         ],
         Numerical: [
             {
+            column: "number1",
+            value: "xxxxxXXxx"
+            },
+            {
             column: "number",
             value: "xxxxxXXxx"
             },
@@ -169,8 +172,8 @@ def image_process():
             {
             column: "opacity",
             value: "xxxxxXXxx"
-            }], # ["number" of sub, "number1" of main] if type of combbination
-        process_type: 0 | 1 | 2<note: only by combbination>,
+            }], # ["number" of sub, "number1" of main] if type of combbination, number1 must in first
+        process_type: 0 | 1 | 2<note: only by combination>, # 0: whole+partial
         size_of_whole?: int,
         data_title: str
     }
@@ -194,7 +197,11 @@ def image_process():
     注：只有在没有选择shape_main的前提下才可以选择Number_main，换句话说，如果选择了shape_main就没有number_main的选择。如果选择了number_main，就没有shape_main的选择。
 
     """
-    return jsonify({"status": "success", "images": process_image_by_numerical(request.json)})
+    return jsonify({"status": "success",
+                    "images": [
+                        {"data_index": column_index,
+                         "image_id": image_id} for column_index, image_id in process_image_by_numerical(request.json)
+                    ]})
 
 
 @app.route("/placement", methods=["POST"])
