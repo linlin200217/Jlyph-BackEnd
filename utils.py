@@ -486,10 +486,11 @@ PROCESS = {
 
 
 def scale_size(max_of_data, min_of_data, size, image) -> Tuple[int, int]:
-    loss = max_of_data - min_of_data
-    image_width = image.size[0] + (image.size[0] / loss) * (size - loss)
-    image_height = image.size[1] + (image.size[1] / loss) * (size - loss)
-    return int(image_width), int(image_height)
+    scaling = 0.5 + 0.5 * (size - min_of_data) / (max_of_data - min_of_data)
+    
+    image_width = int(image.size[0] * scaling)
+    image_height = int(image.size[1] * scaling)
+    return image_width, image_height
 
 
 def calculate_opacity(max_of_opacity, min_of_opacity, opacity):
@@ -711,6 +712,19 @@ def make_struct(
     ax.set_xlabel(column1, fontsize=text_size, color=text_color, weight='bold')
     ax.set_ylabel(column2, fontsize=text_size, color=text_color, weight='bold')
     ax.scatter(df[column1], df[column2], alpha=0)  # 透明的散点，只为确定轴的范围
+    # Calculate the new range for x-axis and y-axis
+    x_range = df[column1].max() - df[column1].min()
+    y_range = df[column2].max() - df[column2].min()
+
+    # Calculate the new limits by adding/subtracting 10% of the range
+    x_min = df[column1].min() - 0.1 * x_range
+    x_max = df[column1].max() + 0.1 * x_range
+    y_min = df[column2].min() - 0.1 * y_range
+    y_max = df[column2].max() + 0.1 * y_range
+
+    # Set the new x and y axis limits
+    ax.set_xlim(x_min, x_max)
+    ax.set_ylim(y_min, y_max)
 
     # 设置轴的颜色
     ax.spines['bottom'].set_color(text_color)
