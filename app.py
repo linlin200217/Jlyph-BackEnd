@@ -210,7 +210,10 @@ def placement_image():
     {
         design: "partial" | "whole" | "combination",
         drawer_by: "width" | "height",
-        images: list[str],
+        images: list[{
+            "data_index": int, "image_id": str,
+            ...
+        }],
         method: "grid" | "struct" | "geo",
         data_title: str,
         border_thickness: int,    # grid

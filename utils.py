@@ -265,7 +265,9 @@ def generate_whole(prompt1: Union[str, List], Categorical1: List, df: pd.DataFra
         _colors = []
         _textures = []
         _record = {}
+        print(image_id)
         for info in image_id:
+            print(info)
             # info: {image_id:xx, prompt:xx, shape: xx}
             prompts = make_prompt_by_categorical(WHOLE_PREFIX, info["prompt"], Categorical1, df,
                                                  list(set(COLOR) - set(_colors)),
@@ -286,8 +288,8 @@ def generate_whole(prompt1: Union[str, List], Categorical1: List, df: pd.DataFra
 
 def generate_combination(image_id: List, prompt1: Union[str, List], prompt2: str, Categorical1: List,
                          Categorical2: List, df: pd.DataFrame, *args, **kwargs):
-    main_images = [generate_whole(
-        prompt1, Categorical1, df, id_, "main_generated_") for id_ in image_id[:-1]]
+    main_images = generate_whole(
+        prompt1, Categorical1, df, image_id[:-1], "main_generated_")
     sub_image = generate_partial(
         prompt2, Categorical2, df, image_id[-1]["image_id"], "sub_generated_")
     return main_images + sub_image
@@ -447,8 +449,8 @@ def numerical_combination(image: Image.Image,
                 else process_to_circle(image, main_number)
             image_pipe.append([column_idx, process_to_combination(main_image, sub_image, sub_of_number)])
     if column_name == "number" and process_type == 0:
-        if image_pipe:
-            for column_idx, number in (data.index, data[column_value]):
+        if not image_pipe:
+            for column_idx, number in zip(data.index, data[column_value]):
                 image_pipe.append([column_idx, process_to_combination(image, sub_image, number)])
     if column_name == "size":
         for idx, (column_idx, size) in enumerate(zip(data.index, data[column_value])):
@@ -487,7 +489,7 @@ PROCESS = {
 
 def scale_size(max_of_data, min_of_data, size, image) -> Tuple[int, int]:
     scaling = 0.5 + 0.5 * (size - min_of_data) / (max_of_data - min_of_data)
-    
+
     image_width = int(image.size[0] * scaling)
     image_height = int(image.size[1] * scaling)
     return image_width, image_height
@@ -611,7 +613,7 @@ def draw_dashed_line(draw, start, end, fill='black', width=1, dash_length=10, sp
 
 
 def make_grid(
-        images: List[str],
+        images: List[Dict],
         border_thickness: int,
         color_fill: str,
         dashed: bool,
@@ -631,24 +633,25 @@ def make_grid(
 
         return image.crop((left, top, right, bottom))
 
-    flower_images = [get_image_by_id(image_id) for image_id in images]
+    flower_images = [(image.get("data_index"), get_image_by_id(image.get("image_id"))) for image in images]
+    flower_images.sort(key=lambda item: item[0])
     N = math.ceil(math.sqrt(len(flower_images)))
 
-    output_width = N * 400
-    output_height = N * 400
+    output_width = N * 500
+    output_height = N * 500
 
     output_image = Image.new('RGBA', (output_width, output_height), (255, 255, 255, 0)) \
         if background_type == "transparent" else \
         Image.new('RGBA', (output_width, output_height), background_color)
 
     # 将每张花的图片粘贴到网格的背景图像上
-    for idx, flower_image in enumerate(flower_images):
+    for idx, (column_index, flower_image) in enumerate(flower_images):
         row = idx // N
         col = idx % N
 
-        cropped_flower = center_crop(flower_image, 400, 400)
-        x_offset = col * 400
-        y_offset = row * 400
+        cropped_flower = center_crop(flower_image, 500, 500)
+        x_offset = col * 500
+        y_offset = row * 500
         output_image.paste(cropped_flower, (x_offset, y_offset), cropped_flower)
 
     # 在网格上添加黑色边框
@@ -657,7 +660,7 @@ def make_grid(
     # 绘制垂直线
     if draw_lines:
         for i in range(1, N ** 2):
-            x = i * 400
+            x = i * 500
             if dashed:
                 draw_dashed_line(draw, (x, 0), (x, output_height), fill=color_fill, width=border_thickness)
             else:
@@ -666,7 +669,7 @@ def make_grid(
     # 绘制水平线
     if draw_lines:
         for i in range(1, N ** 2):
-            y = i * 400
+            y = i * 500
             if dashed:
                 draw_dashed_line(draw, (0, y), (output_width, y), fill=color_fill, width=border_thickness)
             else:
@@ -676,7 +679,7 @@ def make_grid(
 
 
 def make_struct(
-        images: List[str],
+        images: List[Dict],
         data_title: str,
         column1: str,
         column2: str,
@@ -692,7 +695,7 @@ def make_struct(
     df = pd.read_csv(os.path.join(DATAPATH, data_title + ".csv"))
     fig, ax = plt.subplots(figsize=(5.12, 5.12), dpi=500)
 
-    images = [get_image_by_id(image_id) for image_id in images]
+    images = [(image.get("data_index"), get_image_by_id(image.get("image_id"))) for image in images]
 
     # 设置背景
     if background_type == 'transparent':
@@ -703,10 +706,17 @@ def make_struct(
         ax.set_facecolor(background_color)
 
     # 在指定的year和score位置上放置图片
-    for x_data, y_data, img in zip(df[column1], df[column2], images):
-        imagebox = OffsetImage(img, zoom=0.15)  # 这里的zoom可以调整
+    for column_index, image in images:
+        x_data = df[column1][column_index]
+        y_data = df[column2][column_index]
+        imagebox = OffsetImage(image, zoom=0.15)  # 这里的zoom可以调整
         ab = AnnotationBbox(imagebox, (x_data, y_data), frameon=False)
         ax.add_artist(ab)
+
+    # for x_data, y_data, img in zip(df[column1], df[column2], images):
+    #     imagebox = OffsetImage(img, zoom=0.15)  # 这里的zoom可以调整
+    #     ab = AnnotationBbox(imagebox, (x_data, y_data), frameon=False)
+    #     ax.add_artist(ab)
 
     # 设定x轴和y轴的标签以及其样式
     ax.set_xlabel(column1, fontsize=text_size, color=text_color, weight='bold')
@@ -749,7 +759,7 @@ def make_struct(
 
 
 def make_geo(
-        images: List[str],
+        images: List[Dict],
         data_title: str,
         column1: str,
         column2: str,
@@ -763,7 +773,7 @@ def make_geo(
 
 ) -> str:
     data = pd.read_csv(os.path.join(DATAPATH, data_title + ".csv"))
-    images = [get_image_by_id(image_id) for image_id in images]
+    images = [(image.get("data_index"), get_image_by_id(image.get("image_id"))) for image in images]
 
     # 计算涵盖所有城市的经纬度范围
     lats = data[column1]
@@ -782,11 +792,19 @@ def make_geo(
     m.drawcoastlines(linewidth=0.5, color=coastlines)
 
     # 在地图上添加城市的图片
-    for lat, lon, image in zip(lats, lons, images):
+    for column_index, image in images:
+        lat = data[column1][column_index]
+        lon = data[column2][column_index]
         x, y = m(lon, lat)
         size_factor = 0.1  # 使图片大小与年份相关
         img = OffsetImage(image, zoom=size_factor)
         ax.add_artist(AnnotationBbox(img, (x, y), frameon=False))
+
+    # for lat, lon, image in zip(lats, lons, images):
+    #     x, y = m(lon, lat)
+    #     size_factor = 0.1  # 使图片大小与年份相关
+    #     img = OffsetImage(image, zoom=size_factor)
+    #     ax.add_artist(AnnotationBbox(img, (x, y), frameon=False))
 
     filename = f'placement_{int(datetime.datetime.now().timestamp())}'
     plt.savefig(os.path.join(IMAGE_RESOURCE_PATH, filename + ".png"), dpi=500)
