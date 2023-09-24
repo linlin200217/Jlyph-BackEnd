@@ -59,26 +59,30 @@ async def generate():
         design: "partial" | "whole" | "combination",
         Categorical1: 
             [
-                {column: "Flower Country", value: color | texture},
-                {column: "Flower Type", value: color | texture},
+                {column: "Flower Country", value: "color"},
+                {column: "Flower Type", value: "texture"},
+                {column: "Any", value: "shape"},
             ],
         Categorical2:
             [
                 {column: column1, value: color | texture},
                 {column: column2, value: color | texture}
             ], | null,
-        Numerical: ["number","size","opacity"],  # todo
         Ordinal: ["size","opacity"],
-        prompt1: "",
+        prompt1: [subprompt1, subprompt2...] | prompt,
         prompt2: "" | null,
         guide1:  0 | 1 | 2,
         guide2:  0 | 1 | 2 | null,
-        image_id: [str],
+        image_id: [{
+            "image_id": str,
+            "prompt": str,
+            "shape"?: str
+        }...] | str, # whole or combination | partial
         data_title: str
     }
     return:
     {
-            "status": "success", 
+            "status": "success",
             "image": [
                 {prompt: promt1 | subprompt1, texture?: str, color?: str, image_id: <image_id of str>},
                 {prompt: promt2 | subprompt2, texture?: str, color?: str, image_id: <image_id of str>},
@@ -154,6 +158,10 @@ def image_process():
         ],
         Numerical: [
             {
+            column: "number1",
+            value: "xxxxxXXxx"
+            },
+            {
             column: "number",
             value: "xxxxxXXxx"
             },
@@ -164,8 +172,8 @@ def image_process():
             {
             column: "opacity",
             value: "xxxxxXXxx"
-            }], # ["number" of sub, "number1" of main] if type of combbination
-        process_type: 0 | 1 | 2<note: only by combbination>,
+            }], # ["number" of sub, "number1" of main] if type of combbination, number1 must in first
+        process_type: 0 | 1 | 2<note: only by combination>, # 0: whole+partial
         size_of_whole?: int,
         data_title: str
     }
@@ -174,7 +182,7 @@ def image_process():
         status: str,
         images: list[str]
     }
-    
+
     局部：
     categorical：color，texture
     Numerical：Size，number，opacity
@@ -187,9 +195,13 @@ def image_process():
     categorical：color_main, color_auxiliary, texture_main, texture_auxiliary, shape_main
     Numerical: Number_main, Number_auxiliary, Size, Opacity
     注：只有在没有选择shape_main的前提下才可以选择Number_main，换句话说，如果选择了shape_main就没有number_main的选择。如果选择了number_main，就没有shape_main的选择。
-    
+
     """
-    return jsonify({"status": "success", "images": process_image_by_numerical(request.json)})
+    return jsonify({"status": "success",
+                    "images": [
+                        {"data_index": column_index,
+                         "image_id": image_id} for column_index, image_id in process_image_by_numerical(request.json)
+                    ]})
 
 
 @app.route("/placement", methods=["POST"])
@@ -240,8 +252,5 @@ def get_image(image_id):
     return send_file(os.path.join(IMAGE_RESOURCE_PATH, image_id + ".png"))
 
 
-
-
-
 if __name__ == "__main__":
-    app.run(port=8000)
+    app.run(port=8000, debug=True)

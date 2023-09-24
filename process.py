@@ -9,7 +9,7 @@ def process_to_circle(image: Image.Image, number: int):
     petal_width, petal_height = petal_image.size
 
     # 创建一个新的背景图像
-    _image = Image.new('RGBA', (int(petal_width * 1.5), int(petal_width * 1.5)), "black")
+    _image = Image.new('RGBA', (int(petal_width * 1.5), int(petal_width * 1.5)))
 
     # 计算旋转的中心点
     circle_center_x, circle_center_y = int(petal_width*.75), int(petal_width*.75)
@@ -142,7 +142,7 @@ def process_to_combination(main_image, sub_image, sub_of_num, circle_center=(250
     new_width = int(width * 0.2)
     new_height = int(height * 0.2)
     sub_image = sub_image.resize((new_width, new_height))
-    new_image = main_image.copy()
+    new_image = main_image.copy().resize((500, 500))
 
     angle_step = 360 / sub_of_num
     for i in range(sub_of_num):

@@ -159,9 +159,8 @@ def make_glyph(data: Dict) -> List[Dict[str, str]]:
     return image_id
 
 
-def make_partial(
-    prompt1: str, guide1: int, img_prefix: Optional[str] = "partial_", *args, **kwargs
-) -> List[Dict[str, str]]:
+def make_partial(prompt1: str, guide1: int, img_prefix: Optional[str] = "partial_", *args, **kwargs) -> List[
+    Dict[str, str]]:
     # guide: [0-2]
     prompt = PARTIAL_PREFIX + prompt1
     out = PIPE_SD(
@@ -180,18 +179,10 @@ def make_whole(
     if isinstance(prompt1, list):
         # if choice sahpe
         return [
-            {
-                "prompt": prompt,
-                "image_id": save_image(
-                    PIPE_SD(
-                        prompt=WHOLE_PREFIX + prompt,
-                        image=MASK[int(guide1)],
-                        strength=0.9,
-                        guidance_scale=20,
-                    ).images[0],
-                    img_prefix,
-                ),
-            }
+            {"prompt": prompt,
+             "image_id": save_image(PIPE_SD(prompt=WHOLE_PREFIX + prompt,
+                                            image=MASK[int(guide1)], strength=0.9, guidance_scale=20).images[0],
+                                    img_prefix)}
             for prompt in prompt1
         ]
     prompt = WHOLE_PREFIX + prompt1
@@ -218,132 +209,131 @@ PREDESIGN = {
 
 # generate
 def generate_glyph(data: Dict) -> List[str]:
-    df = pd.read_csv(os.path.join(DATAPATH, data["data_title"] + ".csv"))
-    return DESIGN[data["design"]](df=df, **data)
+    df = pd.read_csv(os.path.join(DATAPATH, data['data_title'] + ".csv"))
+    return DESIGN[data['design']](df=df, **data)
 
 
-def make_prompt_by_categorical(
-    prefix: str,
-    prompt: str,
-    categorical: List,
-    df: Optional[pd.DataFrame] = None,
-    _color: Optional[List[str]] = None,
-    _texture: Optional[List[str]] = None,
-    _num: Optional[int] = None,
-) -> List[Tuple]:
+def make_prompt_by_categorical(prefix: str, prompt: str, categorical: List, df: Optional[pd.DataFrame] = None,
+                               _color: Optional[List[str]] = None, _texture: Optional[List[str]] = None,
+                               _shape: Optional[str] = None, _record=None,
+                               _num: Optional[int] = None) -> List[Tuple]:
+    # return: (prompt, color, color_value, texture, texture_value, shape)
+    if _record is None:
+        _record = {}
+    categorical_pos = ["color", "color_value", "texture", "texture_value", "shape"]
+    color_categorical = None
+    texture_categorical = None
+    shape_categorical = None
+    for _categorical in categorical:
+        if _categorical["value"] == "color": color_categorical = _categorical
+        if _categorical["value"] == "texture": texture_categorical = _categorical
+        if _categorical["value"] == "shape": shape_categorical = _categorical
     if len(categorical) == 1:
         item = categorical[0]
-        value = item["value"]
-        num = _num or len(df[item["column"]].drop_duplicates())
-        if value == "color":
-            return [
-                (f"{prefix}{color} {prompt}", color, None)
-                for color in random.sample(_color or COLOR, num)
-            ]
-        if value == "texture":
-            return [
-                (f"{prefix}{texture} {prompt}", None, texture)
-                for texture in random.sample(_texture or TEXTURE, num)
-            ]
-    else:
-        num = _num or len(
-            {
-                f"{column1}{column2}"
-                for column1, column2 in zip(
-                    df[categorical[0][item["column"]]],
-                    df[categorical[1][item["column"]]],
-                )
-            }
-        )
-        return [
-            (f"{prefix}{color} {texture} {prompt}", color, texture)
-            for color, texture in zip(
-                random.sample(_color or COLOR, num),
-                random.sample(_texture or TEXTURE, num),
-            )
-        ]
+        column_duplicated = df[item["column"]].drop_duplicates()
+        num = _num or len(column_duplicated)
+        if color_categorical:
+            return [(f"{prefix}{color} {prompt}", color, value, None, None, None)
+                    for value, color in zip(column_duplicated, random.sample(_color or COLOR, num))]
+        if texture_categorical:
+            return [(f"{prefix}{texture} {prompt}", None, None, texture, value, None)
+                    for value, texture in zip(column_duplicated, random.sample(_texture or TEXTURE, num))]
+    elif len(categorical) == 2:
+        _tmp = {"c1": {}, "c2": {}, "str": [], "prompt": []}
+        num = _num or len({f"{column1}{column2}" for column1, column2 in zip(
+            df[categorical[0]["column"]], df[categorical[1]["column"]])})
+        _colors = random.sample(_color or COLOR, num)
+        _textures = random.sample(_texture or TEXTURE, num)
+        for c1, c2 in zip(df[categorical[0]["column"]], df[categorical[1]["column"]]):
+            if shape_categorical is None or c2 == _shape:
+                s = f"{c1}{c2}"
+                if s not in _tmp["str"]:
+                    _tmp["c1"][c1] = _record.get(c1) or _tmp["c1"].get(c1) or _colors.pop()
+                    _record[c1] = _tmp["c1"][c1]
+
+                    _tmp["c2"][c2] = _record.get(c2) or _tmp["c2"].get(c2) or (_textures.pop()
+                                                                               if shape_categorical is None else c2)
+                    _record[c2] = _tmp["c2"][c2]
+                    _tmp["str"].append(s)
+                    _prompt = [f"A {_tmp['c1'][c1]}" +
+                               (f" {_tmp['c2'][c2]}" if shape_categorical is None else "")
+                               + f" {prompt}", None, None, None, None, None]
+                    _prompt[categorical_pos.index(categorical[0]["value"]) + 1] = _tmp['c1'][c1]
+                    _prompt[categorical_pos.index(categorical[1]["value"]) + 1] = _tmp['c2'][c2]
+                    if categorical[0]["value"] + "_value" in categorical_pos:
+                        _prompt[categorical_pos.index(categorical[0]["value"] + "_value") + 1] = c1
+                    if categorical[1]["value"] + "_value" + "_value" in categorical_pos:
+                        _prompt[categorical_pos.index(categorical[1]["value"] + "_value") + 1] = c2
+
+                    _tmp["prompt"].append(_prompt)
+        return _tmp["prompt"]
+    elif len(categorical) == 3:
+        _tmp = {"color": {}, "texture": {}, "shape": {}, "str": [], "prompt": []}
+        num = _num or len({f"{column1}{column2}{column3}" for column1, column2, column3 in zip(
+            df[categorical[0]["column"]], df[categorical[1]["column"]], df[categorical[2]["column"]])})
+        _colors = random.sample(_color or COLOR, num)
+        _textures = random.sample(_texture or TEXTURE, num)
+        for color, texture, shape in zip(df[categorical[0]["column"]],
+                                         df[categorical[1]["column"]],
+                                         df[categorical[2]["column"]]):
+            if shape == _shape:
+                s = f"{color}{texture}{shape}"
+                if s not in _tmp["str"]:
+                    _tmp["color"][color] = _tmp["color"].get(color) or _colors.pop()
+                    _tmp["texture"][texture] = _tmp["texture"].get(texture) or _textures.pop()
+                    _tmp["str"].append(s)
+                    _tmp["prompt"].append((f"A {_tmp['color'][color]} {_tmp['texture'][texture]} {prompt}",
+                                           _tmp['color'][color], color, _tmp['texture'][texture], texture, _shape))
+
+        return _tmp["prompt"]
 
 
-def generate_partial(
-    prompt1: str,
-    Categorical1: List,
-    Numerical: List,
-    df: pd.DataFrame,
-    image_id: str,
-    image_prefix: Optional[str] = None,
-    *args,
-    **kwargs,
-):
+def generate_partial(prompt1: str, Categorical1: List, df: pd.DataFrame, image_id: str,
+                     image_prefix: Optional[str] = None, *args, **kwargs):
     prompts = make_prompt_by_categorical(PARTIAL_PREFIX, prompt1, Categorical1, df)
-    return [
-        {
-            "prompt": prompt1,
-            "color": color,
-            "texture": texture,
-            "image_id": generate_image(prompt, image_id, image_prefix),
-        }
-        for prompt, color, texture in prompts
-    ]
+    return [{"prompt": prompt1, "color": color, "texture": texture, "color_value": color_value,
+             "texture_value": texture_value, "shape": shape,
+             "image_id": generate_image(prompt, image_id, image_prefix)} for
+            prompt, color, color_value, texture, texture_value, shape in prompts]
 
 
-def generate_whole(
-    prompt1: Union[str, List],
-    Categorical1: List,
-    Numerical: List,
-    df: pd.DataFrame,
-    image_id: str,
-    image_prefix: Optional[str] = None,
-    *args,
-    **kwargs,
-):
+def generate_whole(prompt1: Union[str, List], Categorical1: List, df: pd.DataFrame,
+                   image_id: Union[List[Dict], Dict],
+                   image_prefix: Optional[str] = "generate_", *args, **kwargs):
     if isinstance(prompt1, list):
         _image_id = []
-        for prompt in prompt1:
-            prompts = make_prompt_by_categorical(WHOLE_PREFIX, prompt, Categorical1, df)
-            _image_id += [
-                {
-                    "prompt": prompt,
-                    "color": color,
-                    "texture": texture,
-                    "image_id": generate_image(prompt, image_id, image_prefix),
-                }
-                for prompt, color, texture in prompts
-            ]
+        _colors = []
+        _textures = []
+        _record = {}
+        for info in image_id:
+            # info: {image_id:xx, prompt:xx, shape: xx}
+            prompts = make_prompt_by_categorical(WHOLE_PREFIX, info["prompt"], Categorical1, df,
+                                                 list(set(COLOR) - set(_colors)),
+                                                 list(set(TEXTURE) - set(_textures)), info.get("shape"), _record)
+            _textures += [t for _, _, _, t, _, _ in prompts]
+            _colors += [c for _, c, _, _, _, _ in prompts]
+            _image_id += [{"prompt": prompt, "color": color, "color_value": color_value, "texture": texture,
+                           "texture_value": texture_value,
+                           "shape": shape, "image_id": generate_image(prompt, info["image_id"], image_prefix)}
+                          for prompt, color, color_value, texture, texture_value, shape in prompts]
         return _image_id
-    prompts = make_prompt_by_categorical(WHOLE_PREFIX, prompt1, Categorical1, df)
-    return [
-        {
-            "prompt": prompt1,
-            "color": color,
-            "texture": texture,
-            "image_id": generate_image(prompt, image_id, image_prefix),
-        }
-        for prompt, color, texture in prompts
-    ]
+    prompts = make_prompt_by_categorical(WHOLE_PREFIX, prompt1, Categorical1, df, _shape=image_id.get("shape"))
+    return [{"prompt": prompt1, "color": color, "texture": texture, "color_value": color_value,
+             "texture_value": texture_value, "shape": shape,
+             "image_id": generate_image(prompt, image_id["image_id"], image_prefix)}
+            for prompt, color, color_value, texture, texture_value, shape in prompts]
 
 
-def generate_combination(
-    image_id: List,
-    prompt1: Union[str, List],
-    prompt2: str,
-    Categorical1: List,
-    Categorical2: List,
-    df: pd.DataFrame,
-    Numerical: List,
-    *args,
-    **kwargs,
-):
-    main_images = [
-        generate_whole(prompt1, Categorical1, Numerical, df, id_, "main_generated_")
-        for id_ in image_id[:-1]
-    ]
+def generate_combination(image_id: List, prompt1: Union[str, List], prompt2: str, Categorical1: List,
+                         Categorical2: List, df: pd.DataFrame, *args, **kwargs):
+    main_images = [generate_whole(
+        prompt1, Categorical1, df, id_, "main_generated_") for id_ in image_id[:-1]]
     sub_image = generate_partial(
-        prompt2, Categorical2, Numerical, df, image_id[-1], "sub_generated_"
-    )
+        prompt2, Categorical2, df, image_id[-1]["image_id"], "sub_generated_")
     return main_images + sub_image
 
 
-def generate_image(prompt: str, image_id: str, image_prefix: None = None):
+def generate_image(prompt: str, image_id: str, image_prefix: Optional[str] = None):
     img = np.array(get_image_by_id(image_id))
     low_threshold = 100
     high_threshold = 200
@@ -393,202 +383,151 @@ def regenerate_by_prompt(
 
 # image process
 
-
-def numerical_partial(
-    image: Image.Image,
-    color: Optional[str],
-    texture: Optional[str],
-    color_column: Optional[str],
-    texture_column: Optional[str],
-    numerical: str,
-    df: pd.DataFrame,
-    process_type: str,
-    image_pipe: List,
-    *args,
-    **kwargs,
-):
-    data = df[
-        (color is None or df[color_column] == color)
-        & (texture is None or df[texture_column] == texture)
-    ]
+def numerical_partial(image: Image.Image,
+                      color: Optional[str],
+                      texture: Optional[str],
+                      color_column: Optional[str],
+                      texture_column: Optional[str],
+                      numerical: Dict,
+                      df: pd.DataFrame,
+                      process_type: str,
+                      image_pipe: List[List],
+                      *args, **kwargs):
+    data = df[(color is None or df[color_column] == color) & (texture is None or df[texture_column] == texture)]
     column_name = numerical["column"]
     column_value = numerical["value"]
     if column_name == "number":
-        for number in data[column_value]:
-            image_pipe.append(
-                scale_image(process_to_radiation(image, number))
-                if process_type
-                else process_to_circle(image, number)
-            )
+        for column_idx, number in zip(data.index, data[column_value]):
+            image_pipe.append([column_idx, scale_image(process_to_radiation(image, number))
+            if process_type else process_to_circle(image, number)])
     if column_name == "size":
-        for idx, size in enumerate(data[column_value]):
-            image_width, image_height = scale_size(
-                df[column_value].max(), df[column_value].min(), size, image
-            )
+        for idx, (column_idx, size) in enumerate(zip(data.index, data[column_value])):
+            image_width, image_height = scale_size(df[column_value].max(), df[column_value].min(), size, image)
             if image_pipe:
-                image_pipe[idx] = image_pipe[idx].resize((image_width, image_height))
+                image_pipe[idx][1] = image_pipe[idx][1].resize((image_width, image_height))
             else:
-                image_pipe.append(image.resize((image_width, image_height)))
+                image_pipe.append([column_idx, image.resize((image_width, image_height))])
     if column_name == "opacity":
-        for idx, opacity in enumerate(data[column_value]):
+        for idx, (column_idx, opacity) in enumerate(zip(data.index, data[column_value])):
             if image_pipe:
-                image_pipe[idx] = set_alpha(
-                    image_pipe[idx],
-                    calculate_opacity(
-                        df[column_value].max(), df[column_value].min(), opacity
-                    ),
-                )
+                image_pipe[idx][1] = set_alpha(image_pipe[idx][1],
+                                               calculate_opacity(df[column_value].max(),
+                                                                 df[column_value].min(),
+                                                                 opacity))
             else:
-                image_pipe.append(
-                    set_alpha(
-                        image,
-                        calculate_opacity(
-                            df[column_value].max(), df[column_value].min(), opacity
-                        ),
-                    )
-                )
+                image_pipe.append([column_idx,
+                                   set_alpha(image,
+                                             calculate_opacity(df[column_value].max(),
+                                                               df[column_value].min(),
+                                                               opacity))])
 
 
-def numerical_whole(
-    image: Image.Image,
-    color: Optional[str],
-    texture: Optional[str],
-    color_column: Optional[str],
-    texture_column: Optional[str],
-    size_of_whole: int,
-    numerical: str,
-    df: pd.DataFrame,
-    process_type: int,
-    image_pipe: List,
-    *args,
-    **kwargs,
-):
-    data = df[
-        (color is None or df[color_column] == color)
-        & (texture is None or df[texture_column] == texture)
-    ]
+def numerical_whole(image: Image.Image,
+                    color: Optional[str],
+                    texture: Optional[str],
+                    color_column: Optional[str],
+                    texture_column: Optional[str],
+                    size_of_whole: int,
+                    numerical: str,
+                    df: pd.DataFrame,
+                    process_type: int,
+                    image_pipe: List[List],
+                    *args, **kwargs):
+    data = df[(color is None or df[color_column] == color) & (texture is None or df[texture_column] == texture)]
     column_name = numerical["column"]
     column_value = numerical["value"]
+    empty_pipe = image_pipe == []
     if column_name == "number":
-        for number in data[column_value]:
-            image_pipe.append(
-                process_to_transverse(image, size_of_whole, number)
-                if process_type
-                else process_to_vertical(image, size_of_whole, number)
-            )
+        for idx, (column_idx, number) in enumerate(zip(data.index, data[column_value])):
+            if empty_pipe:
+                image_pipe.append([column_idx, process_to_transverse(image, size_of_whole, number) if process_type
+                else process_to_vertical(image, size_of_whole, number)])
+            else:
+                image_pipe[idx][1] = process_to_transverse(image_pipe[idx][1], size_of_whole, number) if process_type \
+                    else process_to_vertical(image_pipe[idx][1], size_of_whole, number)
     if column_name == "size":
-        for idx, size in enumerate(data[column_value]):
-            image_width, image_height = scale_size(
-                df[column_value].max(), df[column_value].min(), size, image
-            )
-            if image_pipe:
-                image_pipe[idx] = image_pipe[idx].resize((image_width, image_height))
+        for idx, (column_idx, size) in enumerate(zip(data.index, data[column_value])):
+            image_width, image_height = scale_size(df[column_value].max(), df[column_value].min(), size, image)
+            if empty_pipe:
+                image_pipe.append([column_idx, image.resize((image_width, image_height))])
             else:
-                image_pipe.append(image.resize((image_width, image_height)))
+                image_pipe[idx][1] = image_pipe[idx][1].resize((image_width, image_height))
     if column_name == "opacity":
-        for idx, opacity in enumerate(data[column_value]):
-            if image_pipe:
-                image_pipe[idx] = set_alpha(
-                    image_pipe[idx],
-                    calculate_opacity(
-                        df[column_value].max(), df[column_value].min(), opacity
-                    ),
-                )
+        for idx, (column_idx, opacity) in enumerate(zip(data.index, data[column_value])):
+            if empty_pipe:
+                image_pipe.append([column_idx, set_alpha(image,
+                                                         calculate_opacity(df[column_value].max(),
+                                                                           df[column_value].min(),
+                                                                           opacity))])
             else:
-                image_pipe.append(
-                    set_alpha(
-                        image,
-                        calculate_opacity(
-                            df[column_value].max(), df[column_value].min(), opacity
-                        ),
-                    )
-                )
+                image_pipe[idx][1] = [column_idx,
+                                      set_alpha(image_pipe[idx][1],
+                                                calculate_opacity(df[column_value].max(),
+                                                                  df[column_value].min(),
+                                                                  opacity))]
 
 
-def numerical_combination(
-    image: Image.Image,
-    color: Optional[str],
-    texture: Optional[str],
-    color_column: Optional[str],
-    texture_column: Optional[str],
-    df: pd.DataFrame,
-    process_type: int,
-    numerical: Dict,
-    sub_image: Image.Image,
-    image_pipe: List,
-    numerical_number1: Dict,
-    *args,
-    **kwargs,
-):
+def numerical_combination(image: Image.Image,
+                          color: Optional[str],
+                          texture: Optional[str],
+                          color_column: Optional[str],
+                          texture_column: Optional[str],
+                          df: pd.DataFrame,
+                          process_type: int,
+                          numerical: Dict,
+                          sub_image: Dict,
+                          image_pipe: List[List],
+                          numerical_number: Dict,
+                          *args, **kwargs):
     try:
-        data = df[
-            (color is None or df[color_column] == color)
-            & (texture is None or df[texture_column] == texture)
-            & (
-                sub_image.get("color") is None
-                or df[sub_image["color"]] == sub_image["color_column"]
-            )
-            & (
-                sub_image.get("texture") is None
-                or df[sub_image["texture"]] == sub_image["texture_column"]
-            )
-        ]
+        data = df[(color is None or df[color_column] == color) & (texture is None or df[texture_column] == texture)
+                  & (sub_image.get("color") is None or df[sub_image["color_column"]] == sub_image["color"])
+                  & (sub_image.get("texture") is None or df[sub_image["texture_column"]] == sub_image["texture"])]
     except KeyError:
+        print("KEYERROR")
         return
     if data.empty:
+        print("EMPTY DATAS")
         return
     sub_image = get_image_by_id(sub_image["image_id"])
     column_name = numerical["column"]
     column_value = numerical["value"]
     if column_name == "number1" and process_type:
-        for sub_of_number, main_number in zip(
-            data[numerical_number1["value"]], data[column_value]
-        ):  # TODO: wait fix
-            main_image = (
-                scale_image(process_to_radiation(image, main_number))
-                if process_type
+        for column_idx, sub_of_number, main_number in zip(data.index, data[numerical_number["value"]],
+                                                          data[column_value]):
+            main_image = scale_image(process_to_radiation(image, main_number)) if process_type \
                 else process_to_circle(image, main_number)
-            )
-            image_pipe.append(
-                process_to_combination(main_image, sub_image, sub_of_number)
-            )
+            image_pipe.append([column_idx, process_to_combination(main_image, sub_image, sub_of_number)])
     if column_name == "number" and process_type == 0:
-        for number in data[column_value]:
-            image_pipe.append(process_to_combination(image, sub_image, number))
+        if image_pipe:
+            for column_idx, number in (data.index, data[column_value]):
+                image_pipe.append([column_idx, process_to_combination(image, sub_image, number)])
     if column_name == "size":
-        for idx, size in enumerate(data[column_value]):
+        for idx, (column_idx, size) in enumerate(zip(data.index, data[column_value])):
             if image_pipe:
-                image_pipe[idx] = image_pipe[idx].resize(
-                    scale_size(
-                        df[column_value].max(), df[column_value].min(), size, image
-                    )
-                )
+                image_pipe[idx][1] = image_pipe[idx][1].resize(
+                    scale_size(df[column_value].max(), df[column_value].min(), size, image))
             else:
                 image_pipe.append(
-                    process_to_combination(
-                        resize_image_of_combination(image, size),
-                        sub_image,
-                        df["number"][idx],
-                    )
+                    [column_idx,
+                     process_to_combination(
+                         resize_image_of_combination(image, size),
+                         sub_image,
+                         df[column_value][idx]
+                     )]
                 )
     if column_name == "opacity":
-        for idx, opacity in enumerate(data[column_name]):
+        for idx, (column_idx, opacity) in enumerate(zip(data.index, data[column_value])):
             if image_pipe:
-                image_pipe[idx] = set_alpha(
-                    image_pipe[idx],
-                    calculate_opacity(
-                        df[column_name].max(), df[column_name].min(), opacity
-                    ),
-                )
+                image_pipe[idx][1] = set_alpha(image_pipe[idx],
+                                               calculate_opacity(df[column_value].max(),
+                                                                 df[column_value].min(),
+                                                                 opacity))
             else:
-                image_pipe.append(
-                    set_alpha(
-                        image,
-                        calculate_opacity(
-                            df[column_name].max(), df[column_name].min(), opacity
-                        ),
-                    )
-                )
+                image_pipe.append([column_idx, set_alpha(image,
+                                                         calculate_opacity(df[column_value].max(),
+                                                                           df[column_value].min(),
+                                                                           opacity))])
 
 
 PROCESS = {
@@ -599,16 +538,15 @@ PROCESS = {
 
 
 def scale_size(max_of_data, min_of_data, size, image) -> Tuple[int, int]:
-    loss = max_of_data - min_of_data
-    image_width = image.size[0] + (image.size[0] / loss) * (size - loss)
-    image_height = image.size[1] + (image.size[1] / loss) * (size - loss)
-    return int(image_width), int(image_height)
+    scaling = 0.5 + 0.5 * (size - min_of_data) / (max_of_data - min_of_data)
+    
+    image_width = int(image.size[0] * scaling)
+    image_height = int(image.size[1] * scaling)
+    return image_width, image_height
 
 
 def calculate_opacity(max_of_opacity, min_of_opacity, opacity):
-    return 25 + ((opacity - min_of_opacity) / (max_of_opacity - min_of_opacity)) * (
-        100 - 25
-    )
+    return 25 + ((opacity - min_of_opacity) / (max_of_opacity - min_of_opacity)) * (100 - 25)
 
 
 def process_image_by_numerical(data: Dict):
@@ -628,7 +566,7 @@ def process_image_by_numerical(data: Dict):
         else images
     )
 
-    result_images = []
+    result_images = []  # [(idx_of_dataform, <Image>)....]
     for item in images:
         image_id = item.get("image_id")
         color = item.get("color")
@@ -640,44 +578,23 @@ def process_image_by_numerical(data: Dict):
         image_pipe = []
 
         numericals = [numerical["column"] for numerical in Numerical]
-        numerical_number1 = (
-            Numerical[numericals.index("number1")] if "number1" in numericals else None
-        )
+        numerical_number = Numerical[numericals.index("number")] if "number" in numericals else None
 
         if sub_images:
             for sub_image in sub_images:
                 for numerical in Numerical:
-                    PROCESS[design](
-                        image=image,
-                        color=color,
-                        texture=texture,
-                        df=df,
-                        color_column=color_column,
-                        texture_column=texture_column,
-                        numerical=numerical,
-                        image_pipe=image_pipe,
-                        sub_image=sub_image,
-                        numerical_number1=numerical_number1,
-                        **data,
-                    )
+                    PROCESS[design](image=image, color=color, texture=texture, df=df, color_column=color_column,
+                                    texture_column=texture_column, numerical=numerical,
+                                    image_pipe=image_pipe, sub_image=sub_image, numerical_number=numerical_number,
+                                    **data)
 
         else:
             for numerical in Numerical:
-                PROCESS[design](
-                    image=image,
-                    color=color,
-                    texture=texture,
-                    df=df,
-                    color_column=color_column,
-                    texture_column=texture_column,
-                    numerical=numerical,
-                    image_pipe=image_pipe,
-                    sub_image=None,
-                    numerical_number1=numerical_number1,
-                    **data,
-                )
+                PROCESS[design](image=image, color=color, texture=texture, df=df, color_column=color_column,
+                                texture_column=texture_column, numerical=numerical,
+                                image_pipe=image_pipe, sub_image=None, numerical_number=numerical_number, **data)
         result_images += image_pipe
-    return [save_image(img, "res_") for img in result_images]
+    return [(column_index, save_image(img, "res_")) for column_index, img in result_images]
 
 
 def resize_image_of_combination(image, scale_factor):
@@ -786,14 +703,9 @@ def make_grid(
     output_width = N * 400
     output_height = N * 400
 
-    if background_type == "transparent":
-        output_image = Image.new(
-            "RGBA", (output_width, output_height), (255, 255, 255, 0)
-        )
-    elif background_type == "color":
-        output_image = Image.new(
-            "RGBA", (output_width, output_height), background_color
-        )
+    output_image = Image.new('RGBA', (output_width, output_height), (255, 255, 255, 0)) \
+        if background_type == "transparent" else \
+        Image.new('RGBA', (output_width, output_height), background_color)
 
     # 将每张花的图片粘贴到网格的背景图像上
     for idx, flower_image in enumerate(flower_images):
@@ -885,6 +797,19 @@ def make_struct(
     ax.set_xlabel(column1, fontsize=text_size, color=text_color, weight="bold")
     ax.set_ylabel(column2, fontsize=text_size, color=text_color, weight="bold")
     ax.scatter(df[column1], df[column2], alpha=0)  # 透明的散点，只为确定轴的范围
+    # Calculate the new range for x-axis and y-axis
+    x_range = df[column1].max() - df[column1].min()
+    y_range = df[column2].max() - df[column2].min()
+
+    # Calculate the new limits by adding/subtracting 10% of the range
+    x_min = df[column1].min() - 0.1 * x_range
+    x_max = df[column1].max() + 0.1 * x_range
+    y_min = df[column2].min() - 0.1 * y_range
+    y_max = df[column2].max() + 0.1 * y_range
+
+    # Set the new x and y axis limits
+    ax.set_xlim(x_min, x_max)
+    ax.set_ylim(y_min, y_max)
 
     # 设置轴的颜色
     ax.spines["bottom"].set_color(text_color)
@@ -900,14 +825,9 @@ def make_struct(
 
     # 保存图形
     plt.tight_layout()
-    filename = f"placement_{int(datetime.datetime.now().timestamp())}"
-    plt.savefig(
-        os.path.join(IMAGE_RESOURCE_PATH, filename + ".png"),
-        dpi=500,
-        bbox_inches="tight",
-        pad_inches=0,
-        transparent=True if background_type == "transparent" else False,
-    )
+    filename = f'placement_{int(datetime.datetime.now().timestamp())}'
+    plt.savefig(os.path.join(IMAGE_RESOURCE_PATH, filename + ".png"), dpi=500, bbox_inches='tight', pad_inches=0,
+                transparent=True if background_type == 'transparent' else False)
     return filename
 
 
@@ -957,7 +877,7 @@ def make_geo(
         img = OffsetImage(image, zoom=size_factor)
         ax.add_artist(AnnotationBbox(img, (x, y), frameon=False))
 
-    filename = f"placement_{int(datetime.datetime.now().timestamp())}"
+    filename = f'placement_{int(datetime.datetime.now().timestamp())}'
     plt.savefig(os.path.join(IMAGE_RESOURCE_PATH, filename + ".png"), dpi=500)
     return filename
 
