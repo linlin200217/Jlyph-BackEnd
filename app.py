@@ -154,7 +154,7 @@ def image_process():
     {
         design: "partial" | "whole" | "combination",
         images: [
-            {image_id: str, color: str, color_colunm: str, texture: str,texture_colunm: str, shape?: str}
+            {image_id: str, color: str, color_colunm: str, texture: str,texture_colunm: str, shape: str, shape_column: str}
         ],
         Numerical: [
             {
@@ -173,7 +173,7 @@ def image_process():
             column: "opacity",
             value: "xxxxxXXxx"
             }], # ["number" of sub, "number1" of main] if type of combbination, number1 must in first
-        process_type: 0 | 1 | 2<note: only by combination>, # 0: whole+partial
+        process_type: 0 | 1 | 2<note: only by combination>, # 0: whole+partial, if type is 1 or 2, must add number1 of Numerical
         size_of_whole?: int,
         data_title: str
     }
@@ -210,7 +210,10 @@ def placement_image():
     {
         design: "partial" | "whole" | "combination",
         drawer_by: "width" | "height",
-        images: list[str],
+        images: list[{
+            "data_index": int, "image_id": str,
+            ...
+        }],
         method: "grid" | "struct" | "geo",
         data_title: str,
         border_thickness: int,    # grid

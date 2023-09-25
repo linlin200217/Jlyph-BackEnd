@@ -172,7 +172,7 @@ def scale_image(image: Image.Image):
 
     # 创建新的图片，透明背景
     new_image = Image.new('RGBA', (width, height))
-    new_image.paste(image, (0, 0))
+    # new_image.paste(image, (0, 0))
     new_image.paste(enlarged_flower, (
         flower_x - (new_flower_width - flower_width) // 2, flower_y - (new_flower_height - flower_height) // 2),
                     enlarged_flower)

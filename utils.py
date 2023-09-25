@@ -169,13 +169,8 @@ def make_partial(prompt1: str, guide1: int, img_prefix: Optional[str] = "partial
     return [{"prompt": prompt1, "image_id": save_image(out.images[0], img_prefix)}]
 
 
-def make_whole(
-    prompt1: Union[str, List],
-    guide1: int,
-    img_prefix: Optional[str] = None,
-    *args,
-    **kwargs,
-) -> List[Dict[str, str]]:
+def make_whole(prompt1: Union[str, List], guide1: int, img_prefix: Optional[str] = None, *args, **kwargs) \
+        -> List[Dict[str, str]]:
     if isinstance(prompt1, list):
         # if choice sahpe
         return [
@@ -217,10 +212,10 @@ def make_prompt_by_categorical(prefix: str, prompt: str, categorical: List, df: 
                                _color: Optional[List[str]] = None, _texture: Optional[List[str]] = None,
                                _shape: Optional[str] = None, _record=None,
                                _num: Optional[int] = None) -> List[Tuple]:
-    # return: (prompt, color, color_value, texture, texture_value, shape)
+    # return: (prompt, color, color_value, texture, texture_value, shape, shape_value)
     if _record is None:
         _record = {}
-    categorical_pos = ["color", "color_value", "texture", "texture_value", "shape"]
+    categorical_pos = ["color", "color_value", "texture", "texture_value", "shape", "shape_value"]
     color_categorical = None
     texture_categorical = None
     shape_categorical = None
@@ -233,10 +228,10 @@ def make_prompt_by_categorical(prefix: str, prompt: str, categorical: List, df: 
         column_duplicated = df[item["column"]].drop_duplicates()
         num = _num or len(column_duplicated)
         if color_categorical:
-            return [(f"{prefix}{color} {prompt}", color, value, None, None, None)
+            return [(f"{prefix}{color} {prompt}", color, value, None, None, None, None)
                     for value, color in zip(column_duplicated, random.sample(_color or COLOR, num))]
         if texture_categorical:
-            return [(f"{prefix}{texture} {prompt}", None, None, texture, value, None)
+            return [(f"{prefix}{texture} {prompt}", None, None, texture, value, None, None)
                     for value, texture in zip(column_duplicated, random.sample(_texture or TEXTURE, num))]
     elif len(categorical) == 2:
         _tmp = {"c1": {}, "c2": {}, "str": [], "prompt": []}
@@ -252,17 +247,18 @@ def make_prompt_by_categorical(prefix: str, prompt: str, categorical: List, df: 
                     _record[c1] = _tmp["c1"][c1]
 
                     _tmp["c2"][c2] = _record.get(c2) or _tmp["c2"].get(c2) or (_textures.pop()
-                                                                               if shape_categorical is None else c2)
+                                                                               if shape_categorical is None
+                                                                               else categorical[1]["column"])
                     _record[c2] = _tmp["c2"][c2]
                     _tmp["str"].append(s)
                     _prompt = [f"A {_tmp['c1'][c1]}" +
                                (f" {_tmp['c2'][c2]}" if shape_categorical is None else "")
-                               + f" {prompt}", None, None, None, None, None]
+                               + f" {prompt}", None, None, None, None, None, None]
                     _prompt[categorical_pos.index(categorical[0]["value"]) + 1] = _tmp['c1'][c1]
                     _prompt[categorical_pos.index(categorical[1]["value"]) + 1] = _tmp['c2'][c2]
                     if categorical[0]["value"] + "_value" in categorical_pos:
                         _prompt[categorical_pos.index(categorical[0]["value"] + "_value") + 1] = c1
-                    if categorical[1]["value"] + "_value" + "_value" in categorical_pos:
+                    if categorical[1]["value"] + "_value" in categorical_pos:
                         _prompt[categorical_pos.index(categorical[1]["value"] + "_value") + 1] = c2
 
                     _tmp["prompt"].append(_prompt)
@@ -283,7 +279,8 @@ def make_prompt_by_categorical(prefix: str, prompt: str, categorical: List, df: 
                     _tmp["texture"][texture] = _tmp["texture"].get(texture) or _textures.pop()
                     _tmp["str"].append(s)
                     _tmp["prompt"].append((f"A {_tmp['color'][color]} {_tmp['texture'][texture]} {prompt}",
-                                           _tmp['color'][color], color, _tmp['texture'][texture], texture, _shape))
+                                           _tmp['color'][color], color, _tmp['texture'][texture], texture,
+                                           categorical[2]["column"], _shape))
 
         return _tmp["prompt"]
 
@@ -292,9 +289,9 @@ def generate_partial(prompt1: str, Categorical1: List, df: pd.DataFrame, image_i
                      image_prefix: Optional[str] = None, *args, **kwargs):
     prompts = make_prompt_by_categorical(PARTIAL_PREFIX, prompt1, Categorical1, df)
     return [{"prompt": prompt1, "color": color, "texture": texture, "color_value": color_value,
-             "texture_value": texture_value, "shape": shape,
+             "texture_value": texture_value, "shape": shape, "shape_value": shape_value,
              "image_id": generate_image(prompt, image_id, image_prefix)} for
-            prompt, color, color_value, texture, texture_value, shape in prompts]
+            prompt, color, color_value, texture, texture_value, shape, shape_value in prompts]
 
 
 def generate_whole(prompt1: Union[str, List], Categorical1: List, df: pd.DataFrame,
@@ -310,24 +307,26 @@ def generate_whole(prompt1: Union[str, List], Categorical1: List, df: pd.DataFra
             prompts = make_prompt_by_categorical(WHOLE_PREFIX, info["prompt"], Categorical1, df,
                                                  list(set(COLOR) - set(_colors)),
                                                  list(set(TEXTURE) - set(_textures)), info.get("shape"), _record)
-            _textures += [t for _, _, _, t, _, _ in prompts]
-            _colors += [c for _, c, _, _, _, _ in prompts]
+            _textures += [t for _, _, _, t, _, _, _ in prompts]
+            _colors += [c for _, c, _, _, _, _, _ in prompts]
             _image_id += [{"prompt": prompt, "color": color, "color_value": color_value, "texture": texture,
-                           "texture_value": texture_value,
-                           "shape": shape, "image_id": generate_image(prompt, info["image_id"], image_prefix)}
-                          for prompt, color, color_value, texture, texture_value, shape in prompts]
+                           "texture_value": texture_value, "shape": shape, "shape_value": shape_value,
+                           "image_id": generate_image(prompt, info["image_id"], image_prefix)}
+                          for prompt, color, color_value, texture, texture_value, shape, shape_value in prompts]
         return _image_id
     prompts = make_prompt_by_categorical(WHOLE_PREFIX, prompt1, Categorical1, df, _shape=image_id.get("shape"))
     return [{"prompt": prompt1, "color": color, "texture": texture, "color_value": color_value,
-             "texture_value": texture_value, "shape": shape,
+             "texture_value": texture_value, "shape": shape, "shape_value": shape_value,
              "image_id": generate_image(prompt, image_id["image_id"], image_prefix)}
-            for prompt, color, color_value, texture, texture_value, shape in prompts]
+            for prompt, color, color_value, texture, texture_value, shape, shape_value in prompts]
 
 
 def generate_combination(image_id: List, prompt1: Union[str, List], prompt2: str, Categorical1: List,
                          Categorical2: List, df: pd.DataFrame, *args, **kwargs):
-    main_images = [generate_whole(
-        prompt1, Categorical1, df, id_, "main_generated_") for id_ in image_id[:-1]]
+    main_images = generate_whole(
+        prompt1, Categorical1, df, image_id[:-1], "main_generated_") \
+        if isinstance(prompt1, List) else generate_partial(prompt1, Categorical1, df, image_id[0].get("image_id"),
+                                                           "main_generated_")
     sub_image = generate_partial(
         prompt2, Categorical2, df, image_id[-1]["image_id"], "sub_generated_")
     return main_images + sub_image
@@ -427,16 +426,20 @@ def numerical_whole(image: Image.Image,
                     texture: Optional[str],
                     color_column: Optional[str],
                     texture_column: Optional[str],
+                    shape: Optional[str],
+                    shape_column: Optional[str],
                     size_of_whole: int,
                     numerical: str,
                     df: pd.DataFrame,
                     process_type: int,
                     image_pipe: List[List],
                     *args, **kwargs):
-    data = df[(color is None or df[color_column] == color) & (texture is None or df[texture_column] == texture)]
+    data = df[(color is None or df[color_column] == color) & (texture is None or df[texture_column] == texture)
+              & (shape is None or df[shape_column] == shape)]
     column_name = numerical["column"]
     column_value = numerical["value"]
     empty_pipe = image_pipe == []
+    print(numerical, image_pipe)
     if column_name == "number":
         for idx, (column_idx, number) in enumerate(zip(data.index, data[column_value])):
             if empty_pipe:
@@ -446,6 +449,7 @@ def numerical_whole(image: Image.Image,
                 image_pipe[idx][1] = process_to_transverse(image_pipe[idx][1], size_of_whole, number) if process_type \
                     else process_to_vertical(image_pipe[idx][1], size_of_whole, number)
     if column_name == "size":
+        print(data[column_value])
         for idx, (column_idx, size) in enumerate(zip(data.index, data[column_value])):
             image_width, image_height = scale_size(df[column_value].max(), df[column_value].min(), size, image)
             if empty_pipe:
@@ -499,10 +503,11 @@ def numerical_combination(image: Image.Image,
                 else process_to_circle(image, main_number)
             image_pipe.append([column_idx, process_to_combination(main_image, sub_image, sub_of_number)])
     if column_name == "number" and process_type == 0:
-        if image_pipe:
-            for column_idx, number in (data.index, data[column_value]):
+        if not image_pipe:
+            for column_idx, number in zip(data.index, data[column_value]):
                 image_pipe.append([column_idx, process_to_combination(image, sub_image, number)])
     if column_name == "size":
+        print(image_pipe)
         for idx, (column_idx, size) in enumerate(zip(data.index, data[column_value])):
             if image_pipe:
                 image_pipe[idx][1] = image_pipe[idx][1].resize(
@@ -537,42 +542,24 @@ PROCESS = {
 }
 
 
-def scale_size(max_of_data, min_of_data, size, image) -> Tuple[int, int]:
-    scaling = 0.5 + 0.5 * (size - min_of_data) / (max_of_data - min_of_data)
-    
-    image_width = int(image.size[0] * scaling)
-    image_height = int(image.size[1] * scaling)
-    return image_width, image_height
-
-
-def calculate_opacity(max_of_opacity, min_of_opacity, opacity):
-    return 25 + ((opacity - min_of_opacity) / (max_of_opacity - min_of_opacity)) * (100 - 25)
-
-
 def process_image_by_numerical(data: Dict):
     data_title = data["data_title"]
     df = pd.read_csv(os.path.join(DATAPATH, data_title + ".csv"))
     images = data.get("images")
     Numerical = data.get("Numerical")
     design = data.get("design")
-    sub_images = (
-        [item for item in images if "sub_" in item["image_id"]]
-        if design == "combination"
-        else None
-    )
-    images = (
-        [item for item in images if "main_" in item["image_id"]]
-        if design == "combination"
-        else images
-    )
+    sub_images = [item for item in images if "sub_" in item["image_id"]] if design == "combination" else None
+    main_images = [item for item in images if "main_" in item["image_id"]] if design == "combination" else images
 
     result_images = []  # [(idx_of_dataform, <Image>)....]
-    for item in images:
+    for item in main_images:
         image_id = item.get("image_id")
         color = item.get("color")
         texture = item.get("texture")
+        shape = item.get("shape")
         color_column = item.get("color_column")
         texture_column = item.get("texture_column")
+        shape_column = item.get("shape_column")
 
         image = get_image_by_id(image_id)
         image_pipe = []
@@ -584,61 +571,56 @@ def process_image_by_numerical(data: Dict):
             for sub_image in sub_images:
                 for numerical in Numerical:
                     PROCESS[design](image=image, color=color, texture=texture, df=df, color_column=color_column,
-                                    texture_column=texture_column, numerical=numerical,
-                                    image_pipe=image_pipe, sub_image=sub_image, numerical_number=numerical_number,
+                                    texture_column=texture_column, numerical=numerical, shape=shape,
+                                    shape_column=shape_column, image_pipe=image_pipe, sub_image=sub_image,
+                                    numerical_number=numerical_number,
                                     **data)
 
         else:
             for numerical in Numerical:
                 PROCESS[design](image=image, color=color, texture=texture, df=df, color_column=color_column,
-                                texture_column=texture_column, numerical=numerical,
-                                image_pipe=image_pipe, sub_image=None, numerical_number=numerical_number, **data)
+                                texture_column=texture_column, numerical=numerical, shape=shape,
+                                shape_column=shape_column, image_pipe=image_pipe, sub_image=None,
+                                numerical_number=numerical_number, **data)
         result_images += image_pipe
     return [(column_index, save_image(img, "res_")) for column_index, img in result_images]
 
 
+def scale_size(max_of_data, min_of_data, size, image) -> Tuple[int, int]:
+    scaling = 0.5 + 0.5 * (size - min_of_data) / (max_of_data - min_of_data)
+
+    image_width = int(image.size[0] * scaling)
+    image_height = int(image.size[1] * scaling)
+    return image_width, image_height
+
+
+def calculate_opacity(max_of_opacity, min_of_opacity, opacity):
+    return 25 + ((opacity - min_of_opacity) / (max_of_opacity - min_of_opacity)) * (100 - 25)
+
+
 def resize_image_of_combination(image, scale_factor):
-    # 加载图像
-    # 获取图像的尺寸
     original_width, original_height = image.size
 
-    # 计算新的尺寸
     new_width = int(original_width * scale_factor)
     new_height = int(original_height * scale_factor)
 
-    # 缩小狗的图像
     resized_dog_image = image.resize((new_width, new_height), Image.ANTIALIAS)
 
-    # 创建一个透明背景图像
-    background = Image.new("RGBA", (original_width, original_height), (0, 0, 0, 0))
+    background = Image.new('RGBA', (original_width, original_height), (0, 0, 0, 0))
 
-    # 计算粘贴的位置（使狗的图像在背景中居中）
     paste_x = (original_width - new_width) // 2
     paste_y = (original_height - new_height) // 2
 
-    # 粘贴缩小的狗图像到背景中
     background.paste(resized_dog_image, (paste_x, paste_y), resized_dog_image)
 
     return background
 
 
 def set_alpha(img, alpha_percentage) -> Image.Image:
-    """
-    调整图像的透明度。
-
-    参数:
-        img (Image.Image): 一个Pillow图像实例。
-        alpha_percentage (float): 透明度百分比，范围在0到100之间。0表示完全透明，100表示不透明。
-
-    返回:
-        Image.Image: 调整透明度后的图像。
-    """
     assert 0 <= alpha_percentage <= 100, "Alpha percentage should be between 0 and 100."
 
-    # 如果原图不是RGBA模式，转化为RGBA模式
     img = img.convert("RGBA")
 
-    # 获取图像的每个像素的RGBA值
     datas = img.getdata()
 
     new_data = []
@@ -648,7 +630,6 @@ def set_alpha(img, alpha_percentage) -> Image.Image:
             (item[0], item[1], item[2], int(item[3] * alpha_percentage / 100))
         )
 
-    # 应用新的透明度数据
     img.putdata(new_data)
 
     return img
@@ -675,18 +656,15 @@ def draw_dashed_line(
 
 
 def make_grid(
-    images: List[str],
-    border_thickness: int,
-    color_fill: str,
-    dashed: bool,
-    draw_lines: bool,
-    background_type: str,
-    background_color: str,
-    *args,
-    **kwargs,
-) -> str:
+        images: List[Dict],
+        border_thickness: int,
+        color_fill: str,
+        dashed: bool,
+        draw_lines: bool,
+        background_type: str,
+        background_color: str,
+        *args, **kwargs) -> str:
     def center_crop(image, target_width, target_height):
-        """裁剪图像使其大小为目标宽度和高度，同时保持中间的内容不变。"""
         center_x = image.width // 2
         center_y = image.height // 2
 
@@ -697,33 +675,31 @@ def make_grid(
 
         return image.crop((left, top, right, bottom))
 
-    flower_images = [get_image_by_id(image_id) for image_id in images]
+    flower_images = [(image.get("data_index"), get_image_by_id(image.get("image_id"))) for image in images]
+    flower_images.sort(key=lambda item: item[0])
     N = math.ceil(math.sqrt(len(flower_images)))
 
-    output_width = N * 400
-    output_height = N * 400
+    output_width = N * 500
+    output_height = N * 500
 
     output_image = Image.new('RGBA', (output_width, output_height), (255, 255, 255, 0)) \
         if background_type == "transparent" else \
         Image.new('RGBA', (output_width, output_height), background_color)
 
-    # 将每张花的图片粘贴到网格的背景图像上
-    for idx, flower_image in enumerate(flower_images):
+    for idx, (column_index, flower_image) in enumerate(flower_images):
         row = idx // N
         col = idx % N
 
-        cropped_flower = center_crop(flower_image, 400, 400)
-        x_offset = col * 400
-        y_offset = row * 400
+        cropped_flower = center_crop(flower_image, 500, 500)
+        x_offset = col * 500
+        y_offset = row * 500
         output_image.paste(cropped_flower, (x_offset, y_offset), cropped_flower)
 
-    # 在网格上添加黑色边框
     draw = ImageDraw.Draw(output_image)
 
-    # 绘制垂直线
     if draw_lines:
-        for i in range(1, N**2):
-            x = i * 400
+        for i in range(1, N ** 2):
+            x = i * 500
             if dashed:
                 draw_dashed_line(
                     draw,
@@ -741,8 +717,8 @@ def make_grid(
 
     # 绘制水平线
     if draw_lines:
-        for i in range(1, N**2):
-            y = i * 400
+        for i in range(1, N ** 2):
+            y = i * 500
             if dashed:
                 draw_dashed_line(
                     draw,
@@ -760,42 +736,45 @@ def make_grid(
 
 
 def make_struct(
-    images: List[str],
-    data_title: str,
-    column1: str,
-    column2: str,
-    background_type: str,
-    background_color: str,
-    canvas_color: str,
-    text_size: int,
-    text_color: str,
-    grid_color: str,
-    show_grid: bool,
-    *args,
-    **kwargs,
+        images: List[Dict],
+        data_title: str,
+        column1: str,
+        column2: str,
+        background_type: str,
+        background_color: str,
+        canvas_color: str,
+        text_size: int,
+        text_color: str,
+        grid_color: str,
+        show_grid: bool,
+        *args, **kwargs
 ) -> str:
     df = pd.read_csv(os.path.join(DATAPATH, data_title + ".csv"))
     fig, ax = plt.subplots(figsize=(5.12, 5.12), dpi=500)
 
-    images = [get_image_by_id(image_id) for image_id in images]
+    images = [(image.get("data_index"), get_image_by_id(image.get("image_id"))) for image in images]
 
-    # 设置背景
-    if background_type == "transparent":
+    if background_type == 'transparent':
         fig.patch.set_alpha(0)
         ax.patch.set_alpha(0)
     elif background_type == "color":
         fig.patch.set_facecolor(canvas_color)
         ax.set_facecolor(background_color)
 
-    # 在指定的year和score位置上放置图片
-    for x_data, y_data, img in zip(df[column1], df[column2], images):
-        imagebox = OffsetImage(img, zoom=0.15)  # 这里的zoom可以调整
+    for column_index, image in images:
+        x_data = df[column1][column_index]
+        y_data = df[column2][column_index]
+        imagebox = OffsetImage(image, zoom=0.15)  # 这里的zoom可以调整
         ab = AnnotationBbox(imagebox, (x_data, y_data), frameon=False)
         ax.add_artist(ab)
 
-    # 设定x轴和y轴的标签以及其样式
-    ax.set_xlabel(column1, fontsize=text_size, color=text_color, weight="bold")
-    ax.set_ylabel(column2, fontsize=text_size, color=text_color, weight="bold")
+    # for x_data, y_data, img in zip(df[column1], df[column2], images):
+    #     imagebox = OffsetImage(img, zoom=0.15)  # 这里的zoom可以调整
+    #     ab = AnnotationBbox(imagebox, (x_data, y_data), frameon=False)
+    #     ax.add_artist(ab)
+
+    ax.set_xlabel(column1, fontsize=text_size, color=text_color, weight='bold')
+    ax.set_ylabel(column2, fontsize=text_size, color=text_color, weight='bold')
     ax.scatter(df[column1], df[column2], alpha=0)  # 透明的散点，只为确定轴的范围
     # Calculate the new range for x-axis and y-axis
     x_range = df[column1].max() - df[column1].min()
@@ -832,27 +811,25 @@ def make_struct(
 
 
 def make_geo(
-    images: List[str],
-    data_title: str,
-    column1: str,
-    column2: str,
-    fill_color: str,
-    continent_color: str,
-    countries_color: str,
-    linestyle: str,
-    coastlines: str,
-    lake_color: str,
-    *args,
-    **kwargs,
+        images: List[Dict],
+        data_title: str,
+        column1: str,
+        column2: str,
+        fill_color: str,
+        continent_color: str,
+        countries_color: str,
+        linestyle: str,
+        coastlines: str,
+        lake_color: str,
+        *args, **kwargs
+
 ) -> str:
     data = pd.read_csv(os.path.join(DATAPATH, data_title + ".csv"))
-    images = [get_image_by_id(image_id) for image_id in images]
+    images = [(image.get("data_index"), get_image_by_id(image.get("image_id"))) for image in images]
 
-    # 计算涵盖所有城市的经纬度范围
     lats = data[column1]
     lons = data[column2]
 
-    # 初始化地图
     fig, ax = plt.subplots(figsize=(5.12, 5.12), dpi=500)
     m = Basemap(
         projection="merc",
@@ -864,35 +841,39 @@ def make_geo(
         ax=ax,
     )
 
-    # 设置地图的颜色和边框
     m.drawmapboundary(fill_color=fill_color, linewidth=0)
     m.fillcontinents(color=continent_color, lake_color=lake_color)
     m.drawcountries(linewidth=2, linestyle=linestyle, color=countries_color)
     m.drawcoastlines(linewidth=0.5, color=coastlines)
 
     # 在地图上添加城市的图片
-    for lat, lon, image in zip(lats, lons, images):
+    for column_index, image in images:
+        lat = data[column1][column_index]
+        lon = data[column2][column_index]
         x, y = m(lon, lat)
         size_factor = 0.1  # 使图片大小与年份相关
         img = OffsetImage(image, zoom=size_factor)
         ax.add_artist(AnnotationBbox(img, (x, y), frameon=False))
+
+    # for lat, lon, image in zip(lats, lons, images):
+    #     x, y = m(lon, lat)
+    #     size_factor = 0.1  # 使图片大小与年份相关
+    #     img = OffsetImage(image, zoom=size_factor)
+    #     ax.add_artist(AnnotationBbox(img, (x, y), frameon=False))
 
     filename = f'placement_{int(datetime.datetime.now().timestamp())}'
     plt.savefig(os.path.join(IMAGE_RESOURCE_PATH, filename + ".png"), dpi=500)
     return filename
 
 
-def make_drawer_by_height(
-    images: List[str],
-    draw_lines: bool,
-    line_width: int,
-    line_color: str,
-    # dashed: bool,
-    background_color: Optional[str] = None,
-    *args,
-    **kwargs,
-) -> str:
-    images = [get_image_by_id(image_id) for image_id in images]
+def make_drawer_by_height(images: List[Dict],
+                          draw_lines: bool,
+                          line_width: int,
+                          line_color: str,
+                          # dashed: bool,
+                          background_color: Optional[str] = None,
+                          *args, **kwargs) -> str:
+    images = [get_image_by_id(image_id.get("image_id")) for image_id in images]
     total_height = sum(img.height for img in images)
 
     result_image = Image.new("RGBA", (total_height, total_height), background_color)
@@ -911,19 +892,17 @@ def make_drawer_by_height(
 
             y_offset += img.height
             y_offset += line_width
-    return save_image(Image.fromqimage(result_image.toqimage()), "placement_")
+    # return save_image(Image.frombytes("RGBA", (total_height, total_height),result_image.tobytes()), "placement_")
+    return save_image(result_image, "placement_")
 
 
-def make_drawer_by_width(
-    images: List[str],
-    draw_lines: bool,
-    line_width: int,
-    line_color: str,
-    background_color: Optional[str] = None,
-    *args,
-    **kwargs,
-):
-    images = [get_image_by_id(image_id) for image_id in images]
+def make_drawer_by_width(images: List[Dict],
+                         draw_lines: bool,
+                         line_width: int,
+                         line_color: str,
+                         background_color: Optional[str] = None,
+                         *args, **kwargs):
+    images = [get_image_by_id(image_id.get("image_id")) for image_id in images]
     total_width = sum(img.width for img in images)
 
     result_image = Image.new("RGBA", (total_width, total_width), background_color)
