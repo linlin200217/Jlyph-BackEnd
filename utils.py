@@ -550,47 +550,28 @@ def calculate_opacity(max_of_opacity, min_of_opacity, opacity):
 
 
 def resize_image_of_combination(image, scale_factor):
-    # 加载图像
-    # 获取图像的尺寸
     original_width, original_height = image.size
 
-    # 计算新的尺寸
     new_width = int(original_width * scale_factor)
     new_height = int(original_height * scale_factor)
 
-    # 缩小狗的图像
     resized_dog_image = image.resize((new_width, new_height), Image.ANTIALIAS)
 
-    # 创建一个透明背景图像
     background = Image.new('RGBA', (original_width, original_height), (0, 0, 0, 0))
 
-    # 计算粘贴的位置（使狗的图像在背景中居中）
     paste_x = (original_width - new_width) // 2
     paste_y = (original_height - new_height) // 2
 
-    # 粘贴缩小的狗图像到背景中
     background.paste(resized_dog_image, (paste_x, paste_y), resized_dog_image)
 
     return background
 
 
 def set_alpha(img, alpha_percentage) -> Image.Image:
-    """
-    调整图像的透明度。
-
-    参数:
-        img (Image.Image): 一个Pillow图像实例。
-        alpha_percentage (float): 透明度百分比，范围在0到100之间。0表示完全透明，100表示不透明。
-
-    返回:
-        Image.Image: 调整透明度后的图像。
-    """
     assert 0 <= alpha_percentage <= 100, "Alpha percentage should be between 0 and 100."
 
-    # 如果原图不是RGBA模式，转化为RGBA模式
     img = img.convert("RGBA")
 
-    # 获取图像的每个像素的RGBA值
     datas = img.getdata()
 
     new_data = []
@@ -598,7 +579,6 @@ def set_alpha(img, alpha_percentage) -> Image.Image:
         # 修改alpha值
         new_data.append((item[0], item[1], item[2], int(item[3] * alpha_percentage / 100)))
 
-    # 应用新的透明度数据
     img.putdata(new_data)
 
     return img
@@ -632,7 +612,6 @@ def make_grid(
         background_color: str,
         *args, **kwargs) -> str:
     def center_crop(image, target_width, target_height):
-        """裁剪图像使其大小为目标宽度和高度，同时保持中间的内容不变。"""
         center_x = image.width // 2
         center_y = image.height // 2
 
@@ -654,7 +633,6 @@ def make_grid(
         if background_type == "transparent" else \
         Image.new('RGBA', (output_width, output_height), background_color)
 
-    # 将每张花的图片粘贴到网格的背景图像上
     for idx, (column_index, flower_image) in enumerate(flower_images):
         row = idx // N
         col = idx % N
@@ -664,10 +642,8 @@ def make_grid(
         y_offset = row * 500
         output_image.paste(cropped_flower, (x_offset, y_offset), cropped_flower)
 
-    # 在网格上添加黑色边框
     draw = ImageDraw.Draw(output_image)
 
-    # 绘制垂直线
     if draw_lines:
         for i in range(1, N ** 2):
             x = i * 500
@@ -707,7 +683,6 @@ def make_struct(
 
     images = [(image.get("data_index"), get_image_by_id(image.get("image_id"))) for image in images]
 
-    # 设置背景
     if background_type == 'transparent':
         fig.patch.set_alpha(0)
         ax.patch.set_alpha(0)
@@ -715,7 +690,6 @@ def make_struct(
         fig.patch.set_facecolor(canvas_color)
         ax.set_facecolor(background_color)
 
-    # 在指定的year和score位置上放置图片
     for column_index, image in images:
         x_data = df[column1][column_index]
         y_data = df[column2][column_index]
@@ -728,7 +702,6 @@ def make_struct(
     #     ab = AnnotationBbox(imagebox, (x_data, y_data), frameon=False)
     #     ax.add_artist(ab)
 
-    # 设定x轴和y轴的标签以及其样式
     ax.set_xlabel(column1, fontsize=text_size, color=text_color, weight='bold')
     ax.set_ylabel(column2, fontsize=text_size, color=text_color, weight='bold')
     ax.scatter(df[column1], df[column2], alpha=0)  # 透明的散点，只为确定轴的范围
@@ -785,17 +758,14 @@ def make_geo(
     data = pd.read_csv(os.path.join(DATAPATH, data_title + ".csv"))
     images = [(image.get("data_index"), get_image_by_id(image.get("image_id"))) for image in images]
 
-    # 计算涵盖所有城市的经纬度范围
     lats = data[column1]
     lons = data[column2]
 
-    # 初始化地图
     fig, ax = plt.subplots(figsize=(5.12, 5.12), dpi=500)
     m = Basemap(projection='merc', resolution='i',
                 llcrnrlon=min(lons) - 5, urcrnrlon=max(lons) + 5,
                 llcrnrlat=min(lats) - 5, urcrnrlat=max(lats) + 5, ax=ax)
 
-    # 设置地图的颜色和边框
     m.drawmapboundary(fill_color=fill_color, linewidth=0)
     m.fillcontinents(color=continent_color, lake_color=lake_color)
     m.drawcountries(linewidth=2, linestyle=linestyle, color=countries_color)
