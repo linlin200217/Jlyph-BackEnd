@@ -67,6 +67,8 @@ DEVICE = "cuda"
 
 os.makedirs(IMAGE_RESOURCE_PATH, exist_ok=True)
 os.makedirs(DATAPATH, exist_ok=True)
+os.environ["CUDA_DEVICE_ORDER"]="PCI_BUS_ID"
+os.environ["CUDA_VISIBLE_DEVICES"]="1"
 
 PIPE_SD = StableDiffusionImg2ImgPipeline.from_pretrained(
     "/home/newdisk/Website/stable-diffusion-v1-5", torch_dtype=torch.float16
