@@ -456,11 +456,9 @@ def numerical_combination(image: Image.Image,
                 else process_to_circle(image, main_number)
             image_pipe.append([column_idx, process_to_combination(main_image, sub_image, sub_of_number)])
     if column_name == "number" and process_type == 0:
-        if not image_pipe:
-            for column_idx, number in zip(data.index, data[column_value]):
-                image_pipe.append([column_idx, process_to_combination(image, sub_image, number)])
+        for column_idx, number in zip(data.index, data[column_value]):
+            image_pipe.append([column_idx, process_to_combination(image, sub_image, number)])
     if column_name == "size":
-        print(image_pipe)
         for idx, (column_idx, size) in enumerate(zip(data.index, data[column_value])):
             if image_pipe:
                 image_pipe[idx][1] = image_pipe[idx][1].resize(
