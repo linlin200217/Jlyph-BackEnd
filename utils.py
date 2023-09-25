@@ -289,7 +289,9 @@ def generate_whole(prompt1: Union[str, List], Categorical1: List, df: pd.DataFra
 def generate_combination(image_id: List, prompt1: Union[str, List], prompt2: str, Categorical1: List,
                          Categorical2: List, df: pd.DataFrame, *args, **kwargs):
     main_images = generate_whole(
-        prompt1, Categorical1, df, image_id[:-1], "main_generated_")
+        prompt1, Categorical1, df, image_id[:-1], "main_generated_") \
+        if isinstance(prompt1, List) else generate_partial(prompt1, Categorical1, df, image_id[0].get("image_id"),
+                                                           "main_generated_")
     sub_image = generate_partial(
         prompt2, Categorical2, df, image_id[-1]["image_id"], "sub_generated_")
     return main_images + sub_image
