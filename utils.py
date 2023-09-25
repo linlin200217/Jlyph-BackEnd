@@ -781,10 +781,10 @@ def make_struct(
     y_range = df[column2].max() - df[column2].min()
 
     # Calculate the new limits by adding/subtracting 10% of the range
-    x_min = df[column1].min() - 0.1 * x_range
-    x_max = df[column1].max() + 0.1 * x_range
-    y_min = df[column2].min() - 0.1 * y_range
-    y_max = df[column2].max() + 0.1 * y_range
+    x_min = df[column1].min() - 0.2 * x_range
+    x_max = df[column1].max() + 0.2 * x_range
+    y_min = df[column2].min() - 0.2 * y_range
+    y_max = df[column2].max() + 0.2 * y_range
 
     # Set the new x and y axis limits
     ax.set_xlim(x_min, x_max)
