@@ -136,7 +136,7 @@ def process_to_vertical(image: Image.Image, shift_amount: int, number: int):
 
     return output_image
 
-
+'''
 def process_to_combination(main_image, sub_image, sub_of_num, circle_center=(250, 250), circle_radius: int = 200) -> Image.Image:
     width, height = sub_image.size
     new_width = int(width * 0.2)
@@ -144,6 +144,26 @@ def process_to_combination(main_image, sub_image, sub_of_num, circle_center=(250
     sub_image = sub_image.resize((new_width, new_height))
     new_image = main_image.copy().resize((500, 500))
 
+    angle_step = 360 / sub_of_num
+    for i in range(sub_of_num):
+        angle = math.radians(i * angle_step)
+        x = circle_center[0] + circle_radius * math.cos(angle) - sub_image.width // 2
+        y = circle_center[1] + circle_radius * math.sin(angle) - sub_image.height // 2
+        new_image.paste(sub_image, (int(x), int(y)), sub_image)
+    return new_image
+    '''
+def process_to_combination(main_image, sub_image, sub_of_num, circle_center=(250, 250), circle_radius: int = 200) -> Image.Image:
+   
+    main_image_resized = main_image.resize((400,400))
+    
+    width, height = sub_image.size
+    new_width = int(width * 0.25)
+    new_height = int(height * 0.25)
+    sub_image = sub_image.resize((new_width, new_height))
+    #new_image = main_image_resized.copy().resize((500,500))
+    new_image = Image.new('RGBA', (500, 500))
+    paste_position = ((new_image.width - main_image_resized.width) // 2, (new_image.height - main_image_resized.height) // 2)
+    new_image.paste(main_image_resized, paste_position)
     angle_step = 360 / sub_of_num
     for i in range(sub_of_num):
         angle = math.radians(i * angle_step)
