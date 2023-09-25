@@ -137,8 +137,8 @@ def make_partial(prompt1: str, guide1: int, img_prefix: Optional[str] = "partial
     return [{"prompt": prompt1, "image_id": save_image(out.images[0], img_prefix)}]
 
 
-def make_whole(prompt1: Union[str, List], guide1: int, img_prefix: Optional[str] = None, *args, **kwargs) -> List[
-    Dict[str, str]]:
+def make_whole(prompt1: Union[str, List], guide1: int, img_prefix: Optional[str] = None, *args, **kwargs) \
+        -> List[Dict[str, str]]:
     if isinstance(prompt1, list):
         # if choice sahpe
         return [
@@ -177,10 +177,10 @@ def make_prompt_by_categorical(prefix: str, prompt: str, categorical: List, df: 
                                _color: Optional[List[str]] = None, _texture: Optional[List[str]] = None,
                                _shape: Optional[str] = None, _record=None,
                                _num: Optional[int] = None) -> List[Tuple]:
-    # return: (prompt, color, color_value, texture, texture_value, shape)
+    # return: (prompt, color, color_value, texture, texture_value, shape, shape_value)
     if _record is None:
         _record = {}
-    categorical_pos = ["color", "color_value", "texture", "texture_value", "shape"]
+    categorical_pos = ["color", "color_value", "texture", "texture_value", "shape", "shape_value"]
     color_categorical = None
     texture_categorical = None
     shape_categorical = None
@@ -193,10 +193,10 @@ def make_prompt_by_categorical(prefix: str, prompt: str, categorical: List, df: 
         column_duplicated = df[item["column"]].drop_duplicates()
         num = _num or len(column_duplicated)
         if color_categorical:
-            return [(f"{prefix}{color} {prompt}", color, value, None, None, None)
+            return [(f"{prefix}{color} {prompt}", color, value, None, None, None, None)
                     for value, color in zip(column_duplicated, random.sample(_color or COLOR, num))]
         if texture_categorical:
-            return [(f"{prefix}{texture} {prompt}", None, None, texture, value, None)
+            return [(f"{prefix}{texture} {prompt}", None, None, texture, value, None, None)
                     for value, texture in zip(column_duplicated, random.sample(_texture or TEXTURE, num))]
     elif len(categorical) == 2:
         _tmp = {"c1": {}, "c2": {}, "str": [], "prompt": []}
@@ -212,17 +212,18 @@ def make_prompt_by_categorical(prefix: str, prompt: str, categorical: List, df: 
                     _record[c1] = _tmp["c1"][c1]
 
                     _tmp["c2"][c2] = _record.get(c2) or _tmp["c2"].get(c2) or (_textures.pop()
-                                                                               if shape_categorical is None else c2)
+                                                                               if shape_categorical is None
+                                                                               else categorical[1]["column"])
                     _record[c2] = _tmp["c2"][c2]
                     _tmp["str"].append(s)
                     _prompt = [f"A {_tmp['c1'][c1]}" +
                                (f" {_tmp['c2'][c2]}" if shape_categorical is None else "")
-                               + f" {prompt}", None, None, None, None, None]
+                               + f" {prompt}", None, None, None, None, None, None]
                     _prompt[categorical_pos.index(categorical[0]["value"]) + 1] = _tmp['c1'][c1]
                     _prompt[categorical_pos.index(categorical[1]["value"]) + 1] = _tmp['c2'][c2]
                     if categorical[0]["value"] + "_value" in categorical_pos:
                         _prompt[categorical_pos.index(categorical[0]["value"] + "_value") + 1] = c1
-                    if categorical[1]["value"] + "_value" + "_value" in categorical_pos:
+                    if categorical[1]["value"] + "_value" in categorical_pos:
                         _prompt[categorical_pos.index(categorical[1]["value"] + "_value") + 1] = c2
 
                     _tmp["prompt"].append(_prompt)
@@ -243,7 +244,8 @@ def make_prompt_by_categorical(prefix: str, prompt: str, categorical: List, df: 
                     _tmp["texture"][texture] = _tmp["texture"].get(texture) or _textures.pop()
                     _tmp["str"].append(s)
                     _tmp["prompt"].append((f"A {_tmp['color'][color]} {_tmp['texture'][texture]} {prompt}",
-                                           _tmp['color'][color], color, _tmp['texture'][texture], texture, _shape))
+                                           _tmp['color'][color], color, _tmp['texture'][texture], texture,
+                                           categorical[2]["column"], _shape))
 
         return _tmp["prompt"]
 
@@ -252,9 +254,9 @@ def generate_partial(prompt1: str, Categorical1: List, df: pd.DataFrame, image_i
                      image_prefix: Optional[str] = None, *args, **kwargs):
     prompts = make_prompt_by_categorical(PARTIAL_PREFIX, prompt1, Categorical1, df)
     return [{"prompt": prompt1, "color": color, "texture": texture, "color_value": color_value,
-             "texture_value": texture_value, "shape": shape,
+             "texture_value": texture_value, "shape": shape, "shape_value": shape_value,
              "image_id": generate_image(prompt, image_id, image_prefix)} for
-            prompt, color, color_value, texture, texture_value, shape in prompts]
+            prompt, color, color_value, texture, texture_value, shape, shape_value in prompts]
 
 
 def generate_whole(prompt1: Union[str, List], Categorical1: List, df: pd.DataFrame,
@@ -265,25 +267,23 @@ def generate_whole(prompt1: Union[str, List], Categorical1: List, df: pd.DataFra
         _colors = []
         _textures = []
         _record = {}
-        print(image_id)
         for info in image_id:
-            print(info)
             # info: {image_id:xx, prompt:xx, shape: xx}
             prompts = make_prompt_by_categorical(WHOLE_PREFIX, info["prompt"], Categorical1, df,
                                                  list(set(COLOR) - set(_colors)),
                                                  list(set(TEXTURE) - set(_textures)), info.get("shape"), _record)
-            _textures += [t for _, _, _, t, _, _ in prompts]
-            _colors += [c for _, c, _, _, _, _ in prompts]
+            _textures += [t for _, _, _, t, _, _, _ in prompts]
+            _colors += [c for _, c, _, _, _, _, _ in prompts]
             _image_id += [{"prompt": prompt, "color": color, "color_value": color_value, "texture": texture,
-                           "texture_value": texture_value,
-                           "shape": shape, "image_id": generate_image(prompt, info["image_id"], image_prefix)}
-                          for prompt, color, color_value, texture, texture_value, shape in prompts]
+                           "texture_value": texture_value, "shape": shape, "shape_value": shape_value,
+                           "image_id": generate_image(prompt, info["image_id"], image_prefix)}
+                          for prompt, color, color_value, texture, texture_value, shape, shape_value in prompts]
         return _image_id
     prompts = make_prompt_by_categorical(WHOLE_PREFIX, prompt1, Categorical1, df, _shape=image_id.get("shape"))
     return [{"prompt": prompt1, "color": color, "texture": texture, "color_value": color_value,
-             "texture_value": texture_value, "shape": shape,
+             "texture_value": texture_value, "shape": shape, "shape_value": shape_value,
              "image_id": generate_image(prompt, image_id["image_id"], image_prefix)}
-            for prompt, color, color_value, texture, texture_value, shape in prompts]
+            for prompt, color, color_value, texture, texture_value, shape, shape_value in prompts]
 
 
 def generate_combination(image_id: List, prompt1: Union[str, List], prompt2: str, Categorical1: List,
@@ -377,16 +377,20 @@ def numerical_whole(image: Image.Image,
                     texture: Optional[str],
                     color_column: Optional[str],
                     texture_column: Optional[str],
+                    shape: Optional[str],
+                    shape_column: Optional[str],
                     size_of_whole: int,
                     numerical: str,
                     df: pd.DataFrame,
                     process_type: int,
                     image_pipe: List[List],
                     *args, **kwargs):
-    data = df[(color is None or df[color_column] == color) & (texture is None or df[texture_column] == texture)]
+    data = df[(color is None or df[color_column] == color) & (texture is None or df[texture_column] == texture)
+              & (shape is None or df[shape_column] == shape)]
     column_name = numerical["column"]
     column_value = numerical["value"]
     empty_pipe = image_pipe == []
+    print(numerical, image_pipe)
     if column_name == "number":
         for idx, (column_idx, number) in enumerate(zip(data.index, data[column_value])):
             if empty_pipe:
@@ -396,6 +400,7 @@ def numerical_whole(image: Image.Image,
                 image_pipe[idx][1] = process_to_transverse(image_pipe[idx][1], size_of_whole, number) if process_type \
                     else process_to_vertical(image_pipe[idx][1], size_of_whole, number)
     if column_name == "size":
+        print(data[column_value])
         for idx, (column_idx, size) in enumerate(zip(data.index, data[column_value])):
             image_width, image_height = scale_size(df[column_value].max(), df[column_value].min(), size, image)
             if empty_pipe:
@@ -453,6 +458,7 @@ def numerical_combination(image: Image.Image,
             for column_idx, number in zip(data.index, data[column_value]):
                 image_pipe.append([column_idx, process_to_combination(image, sub_image, number)])
     if column_name == "size":
+        print(image_pipe)
         for idx, (column_idx, size) in enumerate(zip(data.index, data[column_value])):
             if image_pipe:
                 image_pipe[idx][1] = image_pipe[idx][1].resize(
@@ -487,18 +493,6 @@ PROCESS = {
 }
 
 
-def scale_size(max_of_data, min_of_data, size, image) -> Tuple[int, int]:
-    scaling = 0.5 + 0.5 * (size - min_of_data) / (max_of_data - min_of_data)
-
-    image_width = int(image.size[0] * scaling)
-    image_height = int(image.size[1] * scaling)
-    return image_width, image_height
-
-
-def calculate_opacity(max_of_opacity, min_of_opacity, opacity):
-    return 25 + ((opacity - min_of_opacity) / (max_of_opacity - min_of_opacity)) * (100 - 25)
-
-
 def process_image_by_numerical(data: Dict):
     data_title = data["data_title"]
     df = pd.read_csv(os.path.join(DATAPATH, data_title + ".csv"))
@@ -506,15 +500,17 @@ def process_image_by_numerical(data: Dict):
     Numerical = data.get("Numerical")
     design = data.get("design")
     sub_images = [item for item in images if "sub_" in item["image_id"]] if design == "combination" else None
-    images = [item for item in images if "main_" in item["image_id"]] if design == "combination" else images
+    main_images = [item for item in images if "main_" in item["image_id"]] if design == "combination" else images
 
     result_images = []  # [(idx_of_dataform, <Image>)....]
-    for item in images:
+    for item in main_images:
         image_id = item.get("image_id")
         color = item.get("color")
         texture = item.get("texture")
+        shape = item.get("shape")
         color_column = item.get("color_column")
         texture_column = item.get("texture_column")
+        shape_column = item.get("shape_column")
 
         image = get_image_by_id(image_id)
         image_pipe = []
@@ -526,17 +522,31 @@ def process_image_by_numerical(data: Dict):
             for sub_image in sub_images:
                 for numerical in Numerical:
                     PROCESS[design](image=image, color=color, texture=texture, df=df, color_column=color_column,
-                                    texture_column=texture_column, numerical=numerical,
-                                    image_pipe=image_pipe, sub_image=sub_image, numerical_number=numerical_number,
+                                    texture_column=texture_column, numerical=numerical, shape=shape,
+                                    shape_column=shape_column, image_pipe=image_pipe, sub_image=sub_image,
+                                    numerical_number=numerical_number,
                                     **data)
 
         else:
             for numerical in Numerical:
                 PROCESS[design](image=image, color=color, texture=texture, df=df, color_column=color_column,
-                                texture_column=texture_column, numerical=numerical,
-                                image_pipe=image_pipe, sub_image=None, numerical_number=numerical_number, **data)
+                                texture_column=texture_column, numerical=numerical, shape=shape,
+                                shape_column=shape_column, image_pipe=image_pipe, sub_image=None,
+                                numerical_number=numerical_number, **data)
         result_images += image_pipe
     return [(column_index, save_image(img, "res_")) for column_index, img in result_images]
+
+
+def scale_size(max_of_data, min_of_data, size, image) -> Tuple[int, int]:
+    scaling = 0.5 + 0.5 * (size - min_of_data) / (max_of_data - min_of_data)
+
+    image_width = int(image.size[0] * scaling)
+    image_height = int(image.size[1] * scaling)
+    return image_width, image_height
+
+
+def calculate_opacity(max_of_opacity, min_of_opacity, opacity):
+    return 25 + ((opacity - min_of_opacity) / (max_of_opacity - min_of_opacity)) * (100 - 25)
 
 
 def resize_image_of_combination(image, scale_factor):
@@ -811,14 +821,14 @@ def make_geo(
     return filename
 
 
-def make_drawer_by_height(images: List[str],
+def make_drawer_by_height(images: List[Dict],
                           draw_lines: bool,
                           line_width: int,
                           line_color: str,
                           # dashed: bool,
                           background_color: Optional[str] = None,
                           *args, **kwargs) -> str:
-    images = [get_image_by_id(image_id) for image_id in images]
+    images = [get_image_by_id(image_id.get("image_id")) for image_id in images]
     total_height = sum(img.height for img in images)
 
     result_image = Image.new('RGBA', (total_height, total_height), background_color)
@@ -833,16 +843,17 @@ def make_drawer_by_height(images: List[str],
 
             y_offset += img.height
             y_offset += line_width
-    return save_image(Image.fromqimage(result_image.toqimage()), "placement_")
+    # return save_image(Image.frombytes("RGBA", (total_height, total_height),result_image.tobytes()), "placement_")
+    return save_image(result_image, "placement_")
 
 
-def make_drawer_by_width(images: List[str],
+def make_drawer_by_width(images: List[Dict],
                          draw_lines: bool,
                          line_width: int,
                          line_color: str,
                          background_color: Optional[str] = None,
                          *args, **kwargs):
-    images = [get_image_by_id(image_id) for image_id in images]
+    images = [get_image_by_id(image_id.get("image_id")) for image_id in images]
     total_width = sum(img.width for img in images)
 
     result_image = Image.new('RGBA', (total_width, total_width), background_color)
