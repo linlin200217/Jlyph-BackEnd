@@ -524,7 +524,7 @@ def numerical_combination(image: Image.Image,
     if column_name == "opacity":
         for idx, (column_idx, opacity) in enumerate(zip(data.index, data[column_value])):
             if image_pipe:
-                image_pipe[idx][1] = set_alpha(image_pipe[idx],
+                image_pipe[idx][1] = set_alpha(image_pipe[idx][1],
                                                calculate_opacity(df[column_value].max(),
                                                                  df[column_value].min(),
                                                                  opacity))
