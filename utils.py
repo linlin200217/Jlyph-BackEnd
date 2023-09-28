@@ -770,7 +770,7 @@ def make_grid(
                     [(0, y), (output_width, y)], fill=color_fill, width=border_thickness
                 )
 
-    return save_image(output_image.resize((512, 512)), "placement_")
+    return save_image(output_image.resize((1024, 1024)), "placement_")
 
 
 def make_struct(
