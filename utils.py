@@ -237,10 +237,8 @@ def make_prompt_by_categorical(prefix: str, prompt: str, categorical: List, df: 
                     for value, texture in zip(column_duplicated, random.sample(_texture or TEXTURE, num))]
     elif len(categorical) == 2:
         _tmp = {"c1": {}, "c2": {}, "str": [], "prompt": []}
-        num = _num or len({f"{column1}{column2}" for column1, column2 in zip(
-            df[categorical[0]["column"]], df[categorical[1]["column"]])})
-        _colors = random.sample(_color or COLOR, num)
-        _textures = random.sample(_texture or TEXTURE, num)
+        _colors = random.sample(_color or COLOR, len(_color or COLOR))
+        _textures = random.sample(_texture or TEXTURE, len(_texture or TEXTURE))
         for c1, c2 in zip(df[categorical[0]["column"]], df[categorical[1]["column"]]):
             if shape_categorical is None or c2 == _shape:
                 s = f"{c1}{c2}"
