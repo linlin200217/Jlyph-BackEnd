@@ -245,13 +245,16 @@ def make_prompt_by_categorical(prefix: str, prompt: str, categorical: List, df: 
             if shape_categorical is None or c2 == _shape:
                 s = f"{c1}{c2}"
                 if s not in _tmp["str"]:
-                    _tmp["c1"][c1] = _record.get(
-                        c1) or _tmp["c1"].get(c1) or _colors.pop()
+                    _tmp["c1"][c1] = _record.get(c1) or _tmp["c1"].get(c1) or (_colors.pop()
+                                                                               if color_categorical
+                                                                               else _textures.pop())
                     _record[c1] = _tmp["c1"][c1]
 
-                    _tmp["c2"][c2] = _record.get(c2) or _tmp["c2"].get(c2) or (_textures.pop()
-                                                                               if shape_categorical is None
-                                                                               else categorical[1]["column"])
+                    _tmp["c2"][c2] = _record.get(c2) or _tmp["c2"].get(c2) or (categorical[1]["column"]
+                                                                               if shape_categorical
+                                                                               else _colors.pop()
+                                                                               if color_categorical
+                                                                               else _textures)
                     _record[c2] = _tmp["c2"][c2]
                     _tmp["str"].append(s)
                     _prompt = [f"A {_tmp['c1'][c1]}" +
@@ -316,9 +319,8 @@ def generate_whole(prompt1: Union[str, List], Categorical1: List, df: pd.DataFra
         for info in image_id:
             # info: {image_id:xx, prompt:xx, shape: xx}
             prompts = make_prompt_by_categorical(WHOLE_PREFIX, info["prompt"], Categorical1, df,
-                                                 list(set(COLOR) -
-                                                      set(_colors)),
-                                                 list(set(TEXTURE) - set(_textures)), info.get("shape"), _record)
+                                                 list(set(COLOR) - set(_colors)), list(set(TEXTURE) - set(_textures)),
+                                                info.get("shape"), _record)
             _textures += [t for _, _, _, t, _, _, _ in prompts]
             _colors += [c for _, c, _, _, _, _, _ in prompts]
             _image_id += [{"prompt": prompt, "color": color, "color_value": color_value, "texture": texture,
