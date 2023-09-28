@@ -528,7 +528,7 @@ def numerical_combination(image: Image.Image,
     if column_name == "number1" and process_type:
         for column_idx, sub_of_number, main_number in zip(data.index, data[numerical_number["value"]],
                                                           data[column_value]):
-            main_image = scale_image(process_to_radiation(image, main_number)) if process_type \
+            main_image = scale_image(process_to_radiation(image, main_number)) if process_type == 1 \
                 else process_to_circle(image, main_number)
             image_pipe.append([column_idx, process_to_combination(
                 main_image, sub_image, sub_of_number)])
