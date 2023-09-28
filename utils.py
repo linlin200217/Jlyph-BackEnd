@@ -384,7 +384,7 @@ def regenerate_by_prompt(
     )
     regenerate_prompt = f"{prefix}{f'{color} {texture}' if color and texture else color if color else texture} {prompt}"
     image_id = generate_image(
-        regenerate_prompt, image_id, "_".join(image_id.split("_")[:-1])
+        regenerate_prompt, image_id, "_".join(image_id.split("_")[:-1]+"_")
     )
     return {
         "image_id": image_id,
@@ -521,6 +521,7 @@ def numerical_combination(image: Image.Image,
     if data.empty:
         print("EMPTY DATAS")
         return
+    # print(image_pipe)
     sub_image = get_image_by_id(sub_image["image_id"])
     column_name = numerical["column"]
     column_value = numerical["value"]
