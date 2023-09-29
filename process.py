@@ -107,7 +107,7 @@ def process_to_radiation(image: Image.Image, number: int):
         offset_x = bg_center[0] - rotated_petal.width // 2
         offset_y = bg_center[1] - rotated_petal.height // 2
         flower_image4.paste(rotated_petal, (offset_x, offset_y), rotated_petal)
-    return center_flower(flower_image4)
+    return center_flower(flower_image4).resize((500,500))
 
 
 def process_to_transverse(image: Image.Image, shift_amount: int, number: int):
